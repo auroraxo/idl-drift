@@ -49,6 +49,23 @@ Exit codes:
 A JSON report is always written to `idl-drift-report.json` in the workspace
 and a step summary table is rendered for the workflow log.
 
+## Proof it works — this repo checks itself
+
+`auroraxo/idl-drift` dogfoods the action against a real mainnet program:
+[`.github/workflows/dogfood.yml`](.github/workflows/dogfood.yml) runs the
+local checkout against the committed real Marinade IDL
+(`testdata/marinade_finance.json`, program
+`MarBmsSgKXdrN1egZf5sqe1TMai9K1rChYNDJgjq7aD`, on-chain IDL account
+`9jWC3EixD3D7ChMrrSRw3opnGHQ8YxZGJqGkzcup3tAn`) on every push to
+`src/`/`testdata/` plus a weekly schedule.
+
+- Latest dogfood run: https://github.com/auroraxo/idl-drift/actions/runs/39065611799 — `no rot detected`, exit 0, report artifact uploaded.
+- Real-repo usage examples for two programs with committed IDLs: [`examples/marinade.yml`](examples/marinade.yml) and [`examples/whirlpool.yml`](examples/whirlpool.yml) (the Whirlpool example fetches the published SDK IDL from the npm CDN, the way a consumer would).
+
+Copy the dogfood pattern into your own repo with the Quickstart above —
+the only required inputs are a program id and a path to the IDL JSON you
+already commit.
+
 ## Local development
 
 ```
