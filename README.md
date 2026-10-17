@@ -61,6 +61,7 @@ local checkout against the committed real Marinade IDL
 
 - Latest dogfood run: https://github.com/auroraxo/idl-drift/actions/runs/39065611799 — `no rot detected`, exit 0, report artifact uploaded.
 - Real-repo usage examples for two programs with committed IDLs: [`examples/marinade.yml`](examples/marinade.yml) and [`examples/whirlpool.yml`](examples/whirlpool.yml) (the Whirlpool example fetches the published SDK IDL from the npm CDN, the way a consumer would).
+- Both examples are also exercised in CI by [`.github/workflows/examples.yml`](.github/workflows/examples.yml) on every push to `examples/`/`src/` plus a weekly schedule, against live mainnet — latest run: https://github.com/auroraxo/idl-drift/actions/runs/39074838554 (both legs green).
 
 Copy the dogfood pattern into your own repo with the Quickstart above —
 the only required inputs are a program id and a path to the IDL JSON you
