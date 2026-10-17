@@ -1,0 +1,35 @@
+name: idl-drift-whirlpool
+
+# Second real-repo example: Orca Whirlpools publishes no committed IDL JSON
+# in the repo (idl/README.md points at the npm CDN instead), so the example
+# fetches the published IDL the way a consumer would, then diffs it against
+# the on-chain IDL account of the Whirlpool program.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch published whirlpool IDL
+        run: |
+          curl -fsSL \
+            https://cdn.jsdelivr.net/npm/@orca-so/whirlpools-sdk@latest/dist/artifacts/whirlpool.json \
+            -o whirlpool.json
+      - uses: auroraxo/idl-drift@v0.2.0
+        with:
+          program: whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc
+          idl: whirlpool.json
+          rpc-url: mainnet
+          fail-on-drift: true
+          fail-on-missing: false
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: idl-drift-report-whirlpool
+          path: idl-drift-report.json

@@ -1,0 +1,41 @@
+name: dogfood
+
+# First real adoption run: idl-drift checks itself.
+#
+# The committed testdata/marinade_finance.json is a real mainnet-committed
+# Anchor IDL, and the Marinade program publishes a real on-chain IDL account
+# (verified 2026-10-17: 9jWC3EixD3D7ChMrrSRw3opnGHQ8YxZGJqGkzcup3tAn).
+# The check below therefore exercises the full path — derive PDAs, fetch,
+# decode, diff — against live mainnet RPC, not fixtures.
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "src/**"
+      - "testdata/**"
+      - "action.yml"
+  workflow_dispatch:
+  schedule:
+    - cron: "41 4 * * 4" # Thursdays 04:41 UTC
+
+permissions:
+  contents: read
+
+jobs:
+  dogfood:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./
+        with:
+          program: MarBmsSgKXdrN1egZf5sqe1TMai9K1rChYNDJgjq7aD
+          idl: testdata/marinade_finance.json
+          rpc-url: mainnet
+          fail-on-drift: true
+          fail-on-missing: false
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dogfood-report
+          path: idl-drift-report.json
