@@ -1,0 +1,30 @@
+name: 'IDL Drift Check'
+description: 'Diff a committed Anchor IDL file against the on-chain IDL account of a Solana program and report drift, or report programs that never published an on-chain IDL.'
+author: 'auroraxo'
+branding:
+  icon: 'shield'
+  color: 'purple'
+
+inputs:
+  program:
+    description: 'Solana program id whose on-chain IDL account should be checked.'
+    required: true
+  idl:
+    description: 'Path to the committed IDL JSON file (relative to the workspace).'
+    required: true
+  rpc-url:
+    description: 'Solana JSON-RPC endpoint.'
+    required: false
+    default: 'https://api.mainnet-beta.solana.com'
+  fail-on-drift:
+    description: 'Fail the step when committed and on-chain IDL differ (true/false).'
+    required: false
+    default: 'true'
+  fail-on-missing:
+    description: 'Fail the step when no on-chain IDL account is published (true/false).'
+    required: false
+    default: 'false'
+
+runs:
+  using: 'node20'
+  main: 'src/index.mjs'

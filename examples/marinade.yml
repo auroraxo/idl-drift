@@ -1,0 +1,27 @@
+name: idl-drift
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "37 3 * * 1" # Mondays 03:37 UTC
+
+permissions:
+  contents: read
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: auroraxo/idl-drift@v1
+        with:
+          program: MarBmsSgKXdrN1egZf5sqe1TMai9K1rChYNDJgjq7aD
+          idl: src/programs/idl/json/marinade_finance.json
+          rpc-url: mainnet
+          fail-on-drift: true
+          fail-on-missing: false
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: idl-drift-report
+          path: idl-drift-report.json
