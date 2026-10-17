@@ -1,0 +1,63 @@
+name: examples
+
+# Proves the two documented examples in examples/ still work against live
+# mainnet, using this checkout rather than the published @v1/@v0.2.0 tag —
+# so a regression in src/ is caught here before it is ever tagged.
+#
+# - marinade: committed IDL in-repo, mirrors examples/marinade.yml.
+# - whirlpool: IDL fetched from the npm CDN the way a consumer would, then
+#   diffed against the Whirlpool program's on-chain IDL account, mirrors
+#   examples/whirlpool.yml.
+#
+# The example files use a consumer-shaped idl path; the marinade leg here
+# points at the real committed file in this repo instead.
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "examples/**"
+      - "src/**"
+      - "action.yml"
+  workflow_dispatch:
+  schedule:
+    - cron: "37 3 * * 1" # Mondays 03:37 UTC
+
+permissions:
+  contents: read
+
+jobs:
+  example:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: marinade
+            program: MarBmsSgKXdrN1egZf5sqe1TMai9K1rChYNDJgjq7aD
+            idl: testdata/marinade_finance.json
+            fetch: "false"
+          - name: whirlpool
+            program: whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc
+            idl: whirlpool.json
+            fetch: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch published whirlpool IDL from the npm CDN
+        if: matrix.fetch == 'true'
+        run: |
+          curl -fsSL \
+            https://cdn.jsdelivr.net/npm/@orca-so/whirlpools-sdk@latest/dist/artifacts/whirlpool.json \
+            -o whirlpool.json
+      - uses: ./
+        with:
+          program: ${{ matrix.program }}
+          idl: ${{ matrix.idl }}
+          rpc-url: mainnet
+          fail-on-drift: true
+          fail-on-missing: false
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: example-report-${{ matrix.name }}
+          path: idl-drift-report.json
