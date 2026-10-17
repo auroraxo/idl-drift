@@ -2,66 +2,48 @@
 // idl-drift Action entrypoint (Node 20+).
 //
 // Reads inputs from `process.env` (GitHub Actions sets `INPUT_<name>`),
-// fetches the on-chain IDL account of a Solana program via JSON-RPC,
-// parses the committed IDL file from the workspace, and reports drift.
+// reads the committed Anchor IDL from the workspace, fetches the on-chain
+// IDL account of a Solana program (canonical Program Metadata `idl` PDA,
+// or legacy Anchor IDL account), and reports drift or absence.
 //
-// Output: a GitHub Actions step summary plus a JSON report at
-// `idl-drift-report.json` (relative to GITHUB_WORKSPACE). Exits non-zero
+// Output: a step summary plus `idl-drift-report.json`. Exits non-zero only
 // when the configured failure conditions trigger.
 //
 // Failure semantics:
-//   - 0: no rot found
-//   - 2: rot found and fail-on-drift / fail-on-missing is true
-//   - 3: usage / IO error
+//   - 0: no rot found, or the check was unresolvable (RPC failed, etc.)
+//   - 2: rot found and the relevant fail flag is on
+//   - 3: usage / IO error (committed IDL unreadable, etc.)
 //
 // The script never throws on unresolvable RPC conditions; it reports them
 // separately and leaves exit status at 0 so the check is safe on schedule.
 
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { gunzipSync, inflateSync } from "node:zlib";
+import {
+  METADATA_PROGRAM,
+  base58Decode,
+  base58Encode,
+  metadataAddress,
+  anchorIdlAddress,
+} from "./derive.mjs";
 
 const MAINNET_RPC = "https://api.mainnet-beta.solana.com";
 const DEVNET_RPC = "https://api.devnet-beta.solana.com";
 
-// Anchor's IDL account seed (https://github.com/coral-xyz/anchor/blob/master/ts/packages/anchor/src/coder/borsh/idl.ts)
-const ANCHOR_IDL_ACCOUNT_DISCRIMINATOR = "idl";
+// `sha256("internal:IdlAccount")[..8]`, from `#[account("internal")]` in
+// Anchor. See coral-xyz/anchor lang/src/idl.rs and the senzenn/idl-drift
+// onchain.rs constants. The legacy Anchor IDL account uses this discriminator.
+const ANCHOR_IDL_DISCRIMINATOR = Buffer.from([24, 70, 98, 191, 58, 144, 123, 158]);
+const ANCHOR_HEADER_LEN = 44;
 
-const BASE58_ALPHABET =
-  "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
-const BASE58_INDEX = new Map();
-for (let i = 0; i < BASE58_ALPHABET.length; i++) {
-  BASE58_INDEX.set(BASE58_ALPHABET[i], i);
-}
-function base58Decode(input) {
-  if (typeof input !== "string" || input.length === 0) {
-    return new Uint8Array(0);
-  }
-  let zeros = 0;
-  while (zeros < input.length && input[zeros] === "1") zeros++;
-  const bytes = [0];
-  for (let i = zeros; i < input.length; i++) {
-    const c = input[i];
-    const v = BASE58_INDEX.get(c);
-    if (v === undefined) {
-      throw new Error(`Invalid base58 character: ${c}`);
-    }
-    let carry = v;
-    for (let j = 0; j < bytes.length; j++) {
-      carry += bytes[j] * 58;
-      bytes[j] = carry & 0xff;
-      carry >>= 8;
-    }
-    while (carry > 0) {
-      bytes.push(carry & 0xff);
-      carry >>= 8;
-    }
-  }
-  const out = new Uint8Array(zeros + bytes.length);
-  for (let i = 0; i < bytes.length; i++) {
-    out[zeros + i] = bytes[bytes.length - 1 - i];
-  }
-  return out;
-}
+// Program Metadata account header: 96 bytes, then the body. Field layout per
+// coral-xyz/anchor idl.ts + solana-program/program-metadata.
+const METADATA_DISCRIMINATOR = 2;
+const METADATA_HEADER_LEN = 96;
+const METADATA_SEED = Buffer.alloc(16, 0);
+Buffer.from("idl").copy(METADATA_SEED);
+const MAX_IDL_BYTES = 16 << 20;
 
 function readInput(name) {
   const envName = `INPUT_${name.toUpperCase().replace(/[^A-Z0-9]/g, "_")}`;
@@ -73,15 +55,9 @@ function readBool(name, defaultValue) {
   if (raw === undefined) return defaultValue;
   return ["true", "1", "yes", "on"].includes(String(raw).toLowerCase());
 }
-
 function envPath() {
-  return (
-    process.env.GITHUB_WORKSPACE ||
-    process.env.IDL_DRIFT_WORKSPACE ||
-    process.cwd()
-  );
+  return process.env.GITHUB_WORKSPACE || process.env.IDL_DRIFT_WORKSPACE || process.cwd();
 }
-
 async function resolveRpcUrl() {
   const raw = readInput("rpc-url") || MAINNET_RPC;
   if (raw === "mainnet" || raw === "mainnet-beta") return MAINNET_RPC;
@@ -89,78 +65,139 @@ async function resolveRpcUrl() {
   return raw;
 }
 
-function jsonRpcRequest(url, method, params) {
-  const body = JSON.stringify({
-    jsonrpc: "2.0",
-    id: "idl-drift",
-    method,
-    params,
-  });
-  return fetch(url, {
+async function jsonRpcRequest(url, method, params) {
+  const body = JSON.stringify({ jsonrpc: "2.0", id: "idl-drift", method, params });
+  const r = await fetch(url, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body,
-  }).then(async (r) => {
-    if (!r.ok) {
-      throw new Error(`RPC HTTP ${r.status} ${r.statusText}`);
-    }
-    const j = await r.json();
-    if (j.error) {
-      throw new Error(`RPC error: ${JSON.stringify(j.error)}`);
-    }
-    return j.result;
   });
+  if (!r.ok) throw new Error(`RPC HTTP ${r.status} ${r.statusText}`);
+  const j = await r.json();
+  if (j.error) throw new Error(`RPC error: ${JSON.stringify(j.error)}`);
+  return j.result;
 }
 
-// Anchor IDL account layout (Borsh):
-//   8 bytes discriminator ("idl" sha256 prefix) — but Anchor actually uses
-//   8 raw bytes that are the first 8 bytes of sha256("account:IdlAccount")
-//   only on modern accounts. Older layouts used the 4-byte discriminator
-//   `[0x0a, 0x69, 0x64, 0x6c]` = "idl". Both are accepted by findIdlAddress.
-// We don't need to re-derive the discriminator here; we just need to know
-// what shape the data is in. Anchor v0.30+ IDL account data layout:
-//   - 8 bytes discriminator (sha256("account:IdlAccount")[:8])
-//   - Borsh-serialized IdlAccount struct { data_len: u32, data: Vec<u8> }
-function tryDecodeAnchorIdl(dataB64) {
-  const bytes = Buffer.from(dataB64, "base64");
-  if (bytes.length < 44) return null;
-  // We do not recompute the discriminator; the on-chain account is either
-  // a recognizable IDL account or it isn't. Length is the cheap signal.
-  const dataLen = bytes.readUInt32LE(8);
-  const expected = 8 + 4 + dataLen;
-  if (expected !== bytes.length) return null;
-  const idlBytes = bytes.subarray(12, 12 + dataLen);
-  try {
-    const idlJson = JSON.parse(idlBytes.toString("utf8"));
-    return idlJson;
-  } catch {
-    return null;
+/** Read a single account as { data: Buffer, owner: string, lamports: number } | null. */
+async function getAccount(rpcUrl, address) {
+  const result = await jsonRpcRequest(rpcUrl, "getAccountInfo", [
+    address,
+    { encoding: "base64" },
+  ]);
+  if (!result || !result.value) return null;
+  const acc = result.value;
+  if (acc.data[1] !== "base64") {
+    throw new Error(`account ${address}: data is not base64`);
   }
+  return {
+    data: Buffer.from(acc.data[0], "base64"),
+    owner: acc.owner,
+    lamports: acc.lamports,
+  };
 }
 
+/** The JSON IDL text inside a canonical Program Metadata `idl` account, or an error. */
+function decodeMetadataAccount(data, programKey) {
+  if (data.length < METADATA_HEADER_LEN) {
+    return { error: `data is ${data.length} bytes, header needs ${METADATA_HEADER_LEN}` };
+  }
+  if (data[0] !== METADATA_DISCRIMINATOR) {
+    return { error: "data does not start with the metadata discriminator (2)" };
+  }
+  if (Buffer.compare(data.subarray(1, 33), Buffer.from(programKey)) !== 0) {
+    return { error: "metadata account is for a different program" };
+  }
+  if (data[66] === 0) {
+    return { error: "metadata account is not canonical (no authority bit set)" };
+  }
+  if (Buffer.compare(data.subarray(67, 83), METADATA_SEED) !== 0) {
+    return { error: "metadata account seed is not 'idl'" };
+  }
+  if (data[83] !== 1) {
+    return { error: `metadata account encoding is ${data[83]}, only UTF-8 (1) holds JSON` };
+  }
+  if (data[85] > 1) {
+    return { error: `metadata account format is ${data[85]}, only JSON (0/1) supported` };
+  }
+  if (data[86] !== 0) {
+    return { error: `metadata account data source is ${data[86]}, only in-account (0) supported` };
+  }
+  const len = data.readUInt32LE(87);
+  const start = METADATA_HEADER_LEN;
+  const end = start + len;
+  if (data.length < end) {
+    return { error: `data is ${data.length} bytes, body needs ${end}` };
+  }
+  const body = data.subarray(start, end);
+  let text;
+  try {
+    text = decodeBody(body, data[84]);
+  } catch (e) {
+    return { error: `cannot decode body: ${e.message}` };
+  }
+  if (text.length > MAX_IDL_BYTES) {
+    return { error: `IDL > ${MAX_IDL_BYTES} bytes` };
+  }
+  return { text };
+}
+
+/** The JSON IDL text inside a legacy Anchor IDL account (44-byte header + zlib body). */
+function decodeAnchorIdlAccount(data) {
+  if (data.length < ANCHOR_HEADER_LEN) {
+    return { error: `data is ${data.length} bytes, header needs ${ANCHOR_HEADER_LEN}` };
+  }
+  if (Buffer.compare(data.subarray(0, 8), ANCHOR_IDL_DISCRIMINATOR) !== 0) {
+    return { error: "data does not start with the Anchor IDL discriminator" };
+  }
+  const len = data.readUInt32LE(40);
+  const start = ANCHOR_HEADER_LEN;
+  const end = start + len;
+  if (data.length < end) {
+    return { error: `data is ${data.length} bytes, body needs ${end}` };
+  }
+  let text;
+  try {
+    text = decodeBody(data.subarray(start, end), 2);
+  } catch (e) {
+    return { error: `cannot decode zlib body: ${e.message}` };
+  }
+  if (text.length > MAX_IDL_BYTES) {
+    return { error: `IDL > ${MAX_IDL_BYTES} bytes` };
+  }
+  return { text };
+}
+
+function decodeBody(body, compression) {
+  // 0 = none, 1 = gzip, 2 = zlib
+  if (compression === 0) return body.toString("utf8");
+  if (compression === 1) return gunzipSync(body).toString("utf8");
+  if (compression === 2) return inflateSync(body).toString("utf8");
+  throw new Error(`unknown compression ${compression}`);
+}
+
+/** Whether the JSON text has control characters in any string field. */
+function hasControlCharacter(value) {
+  const ctrl = (s) => s.split("").some((c) => c.charCodeAt(0) < 0x20);
+  if (typeof value === "string") return ctrl(value);
+  if (Array.isArray(value)) return value.some(hasControlCharacter);
+  if (value && typeof value === "object") {
+    for (const [k, v] of Object.entries(value)) {
+      if (k === "docs") continue;
+      if (ctrl(k) || hasControlCharacter(v)) return true;
+    }
+  }
+  return false;
+}
+
+/** Structural diff focused on the fields that drift across on-chain IDL bumps. */
 function shallowEqualJson(a, b) {
-  // Compare the structural fields most likely to drift between
-  // committed and on-chain IDLs: version, name, instructions count,
-  // accounts count, types count, errors count.
-  const keys = [
-    "version",
-    "name",
-    "instructions",
-    "accounts",
-    "types",
-    "errors",
-    "constants",
-  ];
+  const keys = ["version", "name", "instructions", "accounts", "types", "errors", "constants"];
   for (const k of keys) {
     const av = a?.[k];
     const bv = b?.[k];
     if (Array.isArray(av) && Array.isArray(bv)) {
       if (av.length !== bv.length) {
-        return {
-          ok: false,
-          field: k,
-          detail: `length ${av.length} != ${bv.length}`,
-        };
+        return { ok: false, field: k, detail: `length ${av.length} != ${bv.length}` };
       }
       continue;
     }
@@ -174,21 +211,16 @@ function shallowEqualJson(a, b) {
 async function main() {
   const program = readInput("program");
   const idlPath = readInput("idl");
-  if (!program) {
-    throw new Error("Missing required input: program");
-  }
-  if (!idlPath) {
-    throw new Error("Missing required input: idl");
-  }
+  if (!program) throw new Error("Missing required input: program");
+  if (!idlPath) throw new Error("Missing required input: idl");
   const failOnDrift = readBool("fail-on-drift", true);
   const failOnMissing = readBool("fail-on-missing", false);
   const rpcUrl = await resolveRpcUrl();
   const root = envPath();
   const absIdlPath = path.resolve(root, idlPath);
 
-  const startedAt = new Date().toISOString();
   const report = {
-    startedAt,
+    startedAt: new Date().toISOString(),
     program,
     rpcUrl,
     committedIdlPath: absIdlPath,
@@ -208,93 +240,122 @@ async function main() {
     committedIdl = JSON.parse(raw);
     report.checks.decode.committed = { ok: true };
   } catch (err) {
-    report.checks.decode.committed = {
-      ok: false,
-      error: String(err?.message || err),
-    };
-    report.rot = {
-      kind: "committed_idl_unreadable",
-      detail: report.checks.decode.committed.error,
-    };
+    report.checks.decode.committed = { ok: false, error: String(err?.message || err) };
+    report.rot = { kind: "committed_idl_unreadable", detail: report.checks.decode.committed.error };
     await writeSummary(report, 3);
     return;
   }
 
-  // 2. Fetch on-chain IDL account via standard Solana RPC. We use
-  //    programAccounts memcmp on `anchor:idl` to find any IDL account
-  //    whose data starts with the Anchor IDL discriminator. Cheaper
-  //    than computing the IDL PDA ourselves and tolerant of older
-  //    Anchor layouts.
-  let idlAccount;
+  // 2. Derive both possible IDL account addresses, fetch them, decode whichever
+  //    is present. Order: canonical metadata (Anchor 1.0+), then legacy anchor.
+  let programKey;
   try {
-    const result = await jsonRpcRequest(rpcUrl, "getProgramAccounts", [
-      program,
-      {
-        encoding: "base64",
-        filters: [{ dataSize: undefined }], // populated below
-      },
-    ]).catch(async () => {
-      // Some RPCs reject dataSize:undefined; retry without it.
-      return await jsonRpcRequest(rpcUrl, "getProgramAccounts", [
-        program,
-        { encoding: "base64" },
-      ]);
-    });
-    if (!Array.isArray(result) || result.length === 0) {
-      report.checks.onChainIdlAccount = {
-        status: "missing",
-        note: "program has no owned accounts or RPC returned empty",
-      };
-      report.rot = {
-        kind: "on_chain_idl_missing",
-        detail:
-          "No on-chain IDL account published by this program (or program owns no accounts).",
-      };
-      await writeSummary(report, failOnMissing ? 2 : 0);
-      return;
+    programKey = base58Decode(program);
+    if (programKey.length !== 32) {
+      throw new Error(`program address is ${programKey.length} bytes, expected 32`);
     }
-    // Find the first account whose data decodes as a recognizable IDL.
-    let candidate = null;
-    for (const acc of result) {
-      const decoded = tryDecodeAnchorIdl(acc?.account?.data?.[0]);
-      if (decoded) {
-        candidate = { ...acc, decoded };
-        break;
-      }
-    }
-    if (!candidate) {
-      report.checks.onChainIdlAccount = {
-        status: "present_but_undecodable",
-        accountCount: result.length,
-      };
-      report.unresolvable.push({
-        kind: "idl_account_undecodable",
-        detail: `${result.length} accounts owned, none parsed as IDL`,
-      });
-      await writeSummary(report, failOnMissing ? 2 : 0);
-      return;
-    }
-    report.checks.onChainIdlAccount = {
-      status: "ok",
-      accountCount: result.length,
-      address: candidate.pubkey,
-    };
-    idlAccount = candidate.decoded;
   } catch (err) {
+    report.checks.onChainIdlAccount = { status: "error", error: String(err?.message || err) };
+    report.rot = { kind: "invalid_program", detail: report.checks.onChainIdlAccount.error };
+    await writeSummary(report, 3);
+    return;
+  }
+
+  const metadataAddr = base58Encode(metadataAddress(programKey));
+  const anchorAddr = base58Encode(anchorIdlAddress(programKey));
+
+  let metadataAcc = null;
+  let anchorAcc = null;
+  try {
+    [metadataAcc, anchorAcc] = await Promise.all([
+      getAccount(rpcUrl, metadataAddr),
+      getAccount(rpcUrl, anchorAddr),
+    ]);
+  } catch (err) {
+    report.checks.onChainIdlAccount = { status: "unresolvable", error: String(err?.message || err) };
+    report.unresolvable.push({ kind: "rpc_failure", detail: report.checks.onChainIdlAccount.error });
+    await writeSummary(report, 0);
+    return;
+  }
+
+  // Filter out the "system account" case: a holder has lamports but owner is the System
+  // Program (not the metadata program / not the program), so it is not actually an IDL
+  // account.
+  const hasMetadata = metadataAcc && metadataAcc.owner === METADATA_PROGRAM;
+  const hasAnchor = anchorAcc && anchorAcc.owner === program;
+
+  if (hasMetadata && hasAnchor) {
+    // Both exist: pick canonical metadata (Anchor 1.0+), record both for the report.
     report.checks.onChainIdlAccount = {
-      status: "unresolvable",
-      error: String(err?.message || err),
+      status: "both",
+      metadataAddress: metadataAddr,
+      anchorAddress: anchorAddr,
+    };
+  } else if (hasMetadata) {
+    report.checks.onChainIdlAccount = { status: "ok", address: metadataAddr, source: "metadata" };
+  } else if (hasAnchor) {
+    report.checks.onChainIdlAccount = { status: "ok", address: anchorAddr, source: "anchor" };
+  } else {
+    report.checks.onChainIdlAccount = { status: "missing" };
+    report.rot = {
+      kind: "on_chain_idl_missing",
+      detail: `no on-chain IDL account at metadata ${metadataAddr} or anchor ${anchorAddr}`,
+    };
+    await writeSummary(report, failOnMissing ? 2 : 0);
+    return;
+  }
+
+  const idlAccount = hasMetadata
+    ? metadataAcc
+    : anchorAcc;
+  const idlSource = hasMetadata ? "metadata" : "anchor";
+
+  let decode;
+  try {
+    decode = idlSource === "metadata" ? decodeMetadataAccount(idlAccount.data, programKey) : decodeAnchorIdlAccount(idlAccount.data);
+  } catch (err) {
+    decode = { error: String(err?.message || err) };
+  }
+  if (decode.error) {
+    report.checks.onChainIdlAccount = {
+      ...report.checks.onChainIdlAccount,
+      status: idlSource === "metadata" ? "metadata_undecodable" : "anchor_undecodable",
+      decodeError: decode.error,
     };
     report.unresolvable.push({
-      kind: "rpc_failure",
-      detail: report.checks.onChainIdlAccount.error,
+      kind: "idl_account_undecodable",
+      detail: `${idlSource} at ${report.checks.onChainIdlAccount.address}: ${decode.error}`,
     });
     await writeSummary(report, 0);
     return;
   }
 
+  let onChainIdl;
+  try {
+    onChainIdl = JSON.parse(decode.text);
+  } catch (err) {
+    report.unresolvable.push({
+      kind: "idl_json_parse",
+      detail: `${idlSource} at ${report.checks.onChainIdlAccount.address}: ${err.message}`,
+    });
+    await writeSummary(report, 0);
+    return;
+  }
+  if (hasControlCharacter(onChainIdl)) {
+    report.unresolvable.push({
+      kind: "idl_control_character",
+      detail: `on-chain IDL contains a control character; refused to print`,
+    });
+    await writeSummary(report, 0);
+    return;
+  }
+  // Legacy IDLs have no `address`; bind it to the program we asked about.
+  if (!onChainIdl.address) onChainIdl.address = program;
+  if (!committedIdl.address) committedIdl.address = program;
+  report.checks.decode.onChain = { ok: true, source: idlSource, address: report.checks.onChainIdlAccount.address };
+
   // 3. Diff
-  const diff = shallowEqualJson(committedIdl, idlAccount);
+  const diff = shallowEqualJson(committedIdl, onChainIdl);
   if (diff.ok) {
     report.checks.diff = { status: "ok" };
     report.rot = null;
@@ -302,49 +363,33 @@ async function main() {
     return;
   }
   report.checks.diff = { status: "drift", field: diff.field, detail: diff.detail };
-  report.rot = {
-    kind: "idl_drift",
-    field: diff.field,
-    detail: diff.detail,
-  };
+  report.rot = { kind: "idl_drift", source: idlSource, field: diff.field, detail: diff.detail };
   await writeSummary(report, failOnDrift ? 2 : 0);
 }
 
 async function writeSummary(report, exitCode) {
   const summaryPath = process.env.GITHUB_STEP_SUMMARY;
   if (summaryPath) {
-    const lines = [];
-    lines.push("### idl-drift");
-    lines.push("");
+    const lines = ["### idl-drift", ""];
     lines.push(`- program: \`${report.program}\``);
     lines.push(`- rpc: \`${report.rpcUrl}\``);
     lines.push(`- committed idl: \`${report.committedIdlPath}\``);
-    lines.push(
-      `- on-chain idl: ${report.checks.onChainIdlAccount.status}${
-        report.checks.onChainIdlAccount.address
-          ? ` (\`${report.checks.onChainIdlAccount.address}\`)`
-          : ""
-      }`
-    );
-    if (report.rot) {
-      lines.push("");
-      lines.push(`**rot: ${report.rot.kind}**`);
-      if (report.rot.field) {
-        lines.push(`field: \`${report.rot.field}\``);
-      }
-      if (report.rot.detail) {
-        lines.push(`detail: ${report.rot.detail}`);
-      }
+    const onChain = report.checks.onChainIdlAccount;
+    if (onChain.address) {
+      lines.push(`- on-chain idl (${onChain.source ?? "metadata"}): \`${onChain.address}\``);
     } else {
-      lines.push("");
-      lines.push("**no rot**");
+      lines.push(`- on-chain idl: ${onChain.status}`);
+    }
+    if (report.rot) {
+      lines.push("", `**rot: ${report.rot.kind}**`);
+      if (report.rot.field) lines.push(`field: \`${report.rot.field}\``);
+      if (report.rot.detail) lines.push(`detail: ${report.rot.detail}`);
+    } else if (report.unresolvable.length === 0) {
+      lines.push("", "**no rot**");
     }
     if (report.unresolvable.length > 0) {
-      lines.push("");
-      lines.push("Unresolvable (RPC did not answer conclusively):");
-      for (const u of report.unresolvable) {
-        lines.push(`- ${u.kind}: ${u.detail}`);
-      }
+      lines.push("", "Unresolvable (RPC did not answer conclusively):");
+      for (const u of report.unresolvable) lines.push(`- ${u.kind}: ${u.detail}`);
     }
     await fs.appendFile(summaryPath, lines.join("\n") + "\n");
   }
@@ -352,16 +397,14 @@ async function writeSummary(report, exitCode) {
   const reportPath = path.resolve(envPath(), "idl-drift-report.json");
   try {
     await fs.writeFile(reportPath, JSON.stringify(report, null, 2));
-  } catch (err) {
+  } catch {
     // best-effort
   }
 
-  // Mirror docrot-check output for the workflow log.
   if (report.rot) {
-    console.log(
-      `::error::idl-drift: ${report.rot.kind}${report.rot.field ? ` (${report.rot.field})` : ""}`
-    );
-  } else {
+    const field = report.rot.field ? ` (${report.rot.field})` : "";
+    console.log(`::error::idl-drift: ${report.rot.kind}${field}`);
+  } else if (report.unresolvable.length === 0) {
     console.log(`::notice::idl-drift: no rot detected for ${report.program}`);
   }
   process.exit(exitCode);
