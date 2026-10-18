@@ -189,23 +189,45 @@ function hasControlCharacter(value) {
   return false;
 }
 
-/** Structural diff focused on the fields that drift across on-chain IDL bumps. */
-function shallowEqualJson(a, b) {
-  const keys = ["version", "name", "instructions", "accounts", "types", "errors", "constants"];
-  for (const k of keys) {
-    const av = a?.[k];
-    const bv = b?.[k];
-    if (Array.isArray(av) && Array.isArray(bv)) {
-      if (av.length !== bv.length) {
-        return { ok: false, field: k, detail: `length ${av.length} != ${bv.length}` };
+/** Field-level diff focused on the fields that drift across on-chain IDL bumps. */
+const DIFF_FIELDS = ["version", "name", "instructions", "accounts", "types", "errors", "constants"];
+
+/** Compare one named field; returns a difference entry or null. */
+function diffField(name, av, bv) {
+  if (Array.isArray(av) && Array.isArray(bv)) {
+    if (av.length !== bv.length) {
+      return { field: name, kind: "length", committed: av.length, onChain: bv.length };
+    }
+    // Same length: find which named elements differ (instructions/accounts/types
+    // carry a `name` per element; errors carry `code`).
+    const keyOf = (el, i) => (el && typeof el === "object" && el.name) || String(el?.code ?? i);
+    for (let i = 0; i < av.length; i++) {
+      if (JSON.stringify(av[i]) === JSON.stringify(bv[i])) continue;
+      // Same-length arrays can still be reordered; try a name-keyed match first.
+      const key = keyOf(av[i], i);
+      const idx = bv.findIndex((el) => keyOf(el, i) === key);
+      if (idx >= 0 && JSON.stringify(av[i]) !== JSON.stringify(bv[idx])) {
+        return { field: name, kind: "changed", entry: key };
       }
-      continue;
+      if (idx < 0) {
+        return { field: name, kind: "entries", committed: key };
+      }
     }
-    if (JSON.stringify(av) !== JSON.stringify(bv)) {
-      return { ok: false, field: k, detail: `${JSON.stringify(av)} != ${JSON.stringify(bv)}` };
-    }
+    return null;
   }
-  return { ok: true };
+  if (JSON.stringify(av) !== JSON.stringify(bv)) {
+    return { field: name, kind: "value", committed: av, onChain: bv };
+  }
+  return null;
+}
+
+function diffIdl(a, b) {
+  const differences = [];
+  for (const k of DIFF_FIELDS) {
+    const d = diffField(k, a?.[k], b?.[k]);
+    if (d) differences.push(d);
+  }
+  return { ok: differences.length === 0, differences };
 }
 
 async function main() {
@@ -355,16 +377,30 @@ async function main() {
   report.checks.decode.onChain = { ok: true, source: idlSource, address: report.checks.onChainIdlAccount.address };
 
   // 3. Diff
-  const diff = shallowEqualJson(committedIdl, onChainIdl);
+  const diff = diffIdl(committedIdl, onChainIdl);
   if (diff.ok) {
     report.checks.diff = { status: "ok" };
     report.rot = null;
     await writeSummary(report, 0);
     return;
   }
-  report.checks.diff = { status: "drift", field: diff.field, detail: diff.detail };
-  report.rot = { kind: "idl_drift", source: idlSource, field: diff.field, detail: diff.detail };
+  report.checks.diff = { status: "drift", differences: diff.differences };
+  report.rot = {
+    kind: "idl_drift",
+    source: idlSource,
+    differences: diff.differences,
+    field: diff.differences[0]?.field,
+    detail: diff.differences.map(formatDifference).join("; "),
+  };
   await writeSummary(report, failOnDrift ? 2 : 0);
+}
+
+function formatDifference(d) {
+  if (d.kind === "length") return `${d.field}: ${d.committed} entries committed vs ${d.onChain} on-chain`;
+  if (d.kind === "changed") return `${d.field}.${d.entry}: changed`;
+  if (d.kind === "entries") return `${d.field}: entry '${d.committed}' exists committed but not on-chain`;
+  if (d.kind === "value") return `${d.field}: committed ${JSON.stringify(d.committed)} vs on-chain ${JSON.stringify(d.onChain)}`;
+  return `${d.field}: differs`;
 }
 
 async function writeSummary(report, exitCode) {
@@ -382,8 +418,12 @@ async function writeSummary(report, exitCode) {
     }
     if (report.rot) {
       lines.push("", `**rot: ${report.rot.kind}**`);
-      if (report.rot.field) lines.push(`field: \`${report.rot.field}\``);
-      if (report.rot.detail) lines.push(`detail: ${report.rot.detail}`);
+      if (report.rot.differences?.length) {
+        lines.push("");
+        for (const d of report.rot.differences) lines.push(`- ${formatDifference(d)}`);
+      } else if (report.rot.detail) {
+        lines.push(`detail: ${report.rot.detail}`);
+      }
     } else if (report.unresolvable.length === 0) {
       lines.push("", "**no rot**");
     }
@@ -402,8 +442,10 @@ async function writeSummary(report, exitCode) {
   }
 
   if (report.rot) {
-    const field = report.rot.field ? ` (${report.rot.field})` : "";
-    console.log(`::error::idl-drift: ${report.rot.kind}${field}`);
+    const detail = report.rot.differences?.length
+      ? `: ${report.rot.differences.map(formatDifference).join("; ")}`
+      : `: ${report.rot.kind}`;
+    console.log(`::error::idl-drift: rot detected${detail}`);
   } else if (report.unresolvable.length === 0) {
     console.log(`::notice::idl-drift: no rot detected for ${report.program}`);
   }

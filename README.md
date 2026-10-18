@@ -9,7 +9,9 @@ Two concrete problems it catches:
 1. **Drift.** A program was redeployed and the on-chain IDL account was bumped
    (new instructions, new accounts, new types, version field changed) but the
    committed IDL JSON in the repo was not regenerated. Existing JS/TS clients
-   keep calling the stale layout until something breaks.
+   keep calling the stale layout until something breaks. When drift is found,
+   the report names the exact entries — e.g. `instructions.swap: changed`,
+   `accounts: 14 entries committed vs 16 on-chain` — not just "IDLs differ".
 2. **Silence.** A program that publishes IDL-less updates has no upstream
    signal at all. `marinade-ts-sdk` and `jup-ag/rfq-webhook-toolkit` both
    shipped committed IDLs with **null** on-chain IDL accounts on mainnet as

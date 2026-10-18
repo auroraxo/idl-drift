@@ -175,6 +175,35 @@ await check(
 );
 
 await check(
+  "drift detail: changed instruction named in report",
+  2,
+  async () => {
+    const onChain = structuredClone(committedIdl);
+    onChain.instructions[0].args = [{ name: "ctxRenamed", type: "publicKey" }];
+    return withCase(
+      { metadata: encodeMetadataAccount(programKey, onChain), anchor: null },
+      async ({ url, ws }) => {
+        const res = await runEntry({ ...baseInputs, INPUT_RPC_URL: url, GITHUB_WORKSPACE: ws });
+        if (res.code !== 2) return res;
+        const report = JSON.parse(await fs.readFile(path.join(ws, "idl-drift-report.json"), "utf8"));
+        const d = report.rot?.differences?.[0];
+        if (report.rot?.kind !== "idl_drift") throw new Error(`kind=${report.rot?.kind}`);
+        if (d?.field !== "instructions" || d?.kind !== "changed") {
+          throw new Error(`expected instructions/changed, got ${JSON.stringify(d)}`);
+        }
+        if (d.entry !== committedIdl.instructions[0].name) {
+          throw new Error(`expected entry ${committedIdl.instructions[0].name}, got ${d.entry}`);
+        }
+        if (!res.out.includes(`instructions.${d.entry}: changed`)) {
+          throw new Error(`annotation missing from output: ${res.out}`);
+        }
+        return res;
+      }
+    );
+  }
+);
+
+await check(
   "missing, fail-on-missing=false -> 0",
   0,
   () => withCase({ metadata: null, anchor: null }, ({ url, ws }) => runEntry({ ...baseInputs, INPUT_RPC_URL: url, GITHUB_WORKSPACE: ws }))
