@@ -5,6 +5,10 @@ branding:
   icon: 'shield'
   color: 'purple'
 
+categories:
+  - continuous-integration
+  - utilities
+
 inputs:
   program:
     description: 'Solana program id whose on-chain IDL account should be checked.'
