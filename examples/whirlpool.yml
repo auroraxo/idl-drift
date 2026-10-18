@@ -21,7 +21,7 @@ jobs:
           curl -fsSL \
             https://cdn.jsdelivr.net/npm/@orca-so/whirlpools-sdk@latest/dist/artifacts/whirlpool.json \
             -o whirlpool.json
-      - uses: auroraxo/idl-drift@v0.2.0
+      - uses: auroraxo/idl-drift@v1
         with:
           program: whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc
           idl: whirlpool.json
