@@ -192,6 +192,22 @@ function hasControlCharacter(value) {
 /** Field-level diff focused on the fields that drift across on-chain IDL bumps. */
 const DIFF_FIELDS = ["version", "name", "instructions", "accounts", "types", "errors", "constants"];
 
+/** Strip `docs` (a source-only annotation) recursively. Anchor's on-chain IDL
+ *  spec never carries `docs`, so leaving them in would always show a diff
+ *  between a committed IDL (which has docs) and its on-chain counterpart. */
+function stripDocs(o) {
+  if (Array.isArray(o)) return o.map(stripDocs);
+  if (o && typeof o === "object") {
+    const out = {};
+    for (const [k, v] of Object.entries(o)) {
+      if (k === "docs") continue;
+      out[k] = stripDocs(v);
+    }
+    return out;
+  }
+  return o;
+}
+
 /** Compare one named field; returns a difference entry or null. */
 function diffField(name, av, bv) {
   if (Array.isArray(av) && Array.isArray(bv)) {
@@ -376,8 +392,10 @@ async function main() {
   if (!committedIdl.address) committedIdl.address = program;
   report.checks.decode.onChain = { ok: true, source: idlSource, address: report.checks.onChainIdlAccount.address };
 
-  // 3. Diff
-  const diff = diffIdl(committedIdl, onChainIdl);
+  // 3. Diff. `docs` is source-only — the on-chain spec strips it — so we
+  //    compare both sides with docs removed to avoid a false positive on
+  //    every type that has documentation.
+  const diff = diffIdl(stripDocs(committedIdl), stripDocs(onChainIdl));
   if (diff.ok) {
     report.checks.diff = { status: "ok" };
     report.rot = null;

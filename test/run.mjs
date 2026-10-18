@@ -34,6 +34,20 @@ const committedIdl = JSON.parse(
   await fs.readFile(path.join(here, "..", "testdata", "marinade_finance.json"), "utf8")
 );
 
+// Mirrors the on-chain IDL spec: `docs` never appear on-chain.
+function stripDocsDeep(o) {
+  if (Array.isArray(o)) return o.map(stripDocsDeep);
+  if (o && typeof o === "object") {
+    const out = {};
+    for (const [k, v] of Object.entries(o)) {
+      if (k === "docs") continue;
+      out[k] = stripDocsDeep(v);
+    }
+    return out;
+  }
+  return o;
+}
+
 const ANCHOR_IDL_DISCRIMINATOR = Buffer.from([24, 70, 98, 191, 58, 144, 123, 158]);
 const PROGRAM = "MarBmsSgKXdrN1egZf5sqe1TMai9K1rChYNDJgjq7aD";
 const programKey = base58Decode(PROGRAM);
@@ -170,6 +184,16 @@ await check(
   () =>
     withCase(
       { metadata: encodeMetadataAccount(programKey, { ...committedIdl, version: "9.9.9" }), anchor: null },
+      ({ url, ws }) => runEntry({ ...baseInputs, INPUT_RPC_URL: url, GITHUB_WORKSPACE: ws })
+    )
+);
+
+await check(
+  "no docs diff: on-chain IDL without docs matches committed with docs -> 0",
+  0,
+  () =>
+    withCase(
+      { metadata: encodeMetadataAccount(programKey, stripDocsDeep(committedIdl)), anchor: null },
       ({ url, ws }) => runEntry({ ...baseInputs, INPUT_RPC_URL: url, GITHUB_WORKSPACE: ws })
     )
 );
