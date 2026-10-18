@@ -80,6 +80,14 @@ synthetic RPC response by Base64-encoding the committed IDL into a plausible
 on-chain IDL account payload, feeds it through the entrypoint's RPC client
 shim, and asserts the diff outcome.
 
+## Related
+
+- [`auroraxo/declare-id-drift`](https://github.com/auroraxo/declare-id-drift) —
+  source-side companion. Pure-file four-way check (`declare_id!` ↔
+  `Anchor.toml` ↔ IDL `address` ↔ deployed keypair), no RPC, so it runs on
+  every PR without credentials. Together the two cover both directions of IDL
+  consistency: source-to-source and source-to-chain.
+
 ## License
 
 MIT
