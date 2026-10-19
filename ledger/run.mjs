@@ -22,6 +22,7 @@ const reportName = "idl-drift-report.json";
 const argv = process.argv.slice(2);
 const workspaceIx = argv.indexOf("--workspace");
 const workspace = workspaceIx >= 0 ? path.resolve(argv[workspaceIx + 1]) : await fs.mkdtemp(path.join("/tmp", "idl-drift-ledger-"));
+await fs.mkdir(workspace, { recursive: true });
 
 const targets = JSON.parse(await fs.readFile(targetsPath, "utf8"));
 
@@ -62,10 +63,15 @@ async function runOne(t) {
   });
 
   let report = null;
+  let parseErr = null;
   try {
-    report = JSON.parse(await fs.readFile(path.join(workspace, reportName), "utf8"));
-  } catch {
-    return { ...t, status: "no_report", detail: `exit ${code}` };
+    const raw = await fs.readFile(path.join(workspace, reportName), "utf8");
+    report = JSON.parse(raw);
+  } catch (err) {
+    parseErr = err;
+  }
+  if (!report) {
+    return { ...t, status: "no_report", detail: `exit ${code} parse=${parseErr?.message ?? "?"}` };
   }
   const kind = report.rot?.kind ?? "ok";
   const status = report.rot ? kind : "ok";
