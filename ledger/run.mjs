@@ -43,16 +43,21 @@ async function runOne(t) {
   const code = await new Promise((resolve) => {
     const p = spawn(process.execPath, [entry], {
       cwd: workspace,
-      env: {
-        ...process.env,
-        IDL_DRIFT_WORKSPACE: workspace,
-        INPUT_PROGRAM: t.program,
-        INPUT_IDL: `${t.name}.json`,
-        INPUT_RPC_URL: "mainnet",
-        INPUT_FAIL_ON_DRIFT: "false",
-        INPUT_FAIL_ON_MISSING: "false",
-        INPUT_FAIL_ON_LEGACY_DRIFT: "false",
-      },
+      env: (() => {
+        // src/index.mjs prefers GITHUB_WORKSPACE over IDL_DRIFT_WORKSPACE; on a
+        // runner that would point the child at the repo checkout instead of the
+        // scratch dir. Strip it so the scratch workspace wins.
+        const childEnv = { ...process.env };
+        delete childEnv.GITHUB_WORKSPACE;
+        childEnv.IDL_DRIFT_WORKSPACE = workspace;
+        childEnv.INPUT_PROGRAM = t.program;
+        childEnv.INPUT_IDL = `${t.name}.json`;
+        childEnv.INPUT_RPC_URL = "mainnet";
+        childEnv.INPUT_FAIL_ON_DRIFT = "false";
+        childEnv.INPUT_FAIL_ON_MISSING = "false";
+        childEnv.INPUT_FAIL_ON_LEGACY_DRIFT = "false";
+        return childEnv;
+      })(),
       stdio: ["ignore", "pipe", "pipe"],
     });
     let err = "";
