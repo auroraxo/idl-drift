@@ -1,0 +1,26 @@
+[
+  {
+    "name": "marinade-finance",
+    "program": "MarBmsSgKXdrN1egZf5sqe1TMai9K1rChYNDJgjq7aD",
+    "idl": "testdata/marinade_finance.json",
+    "repo": "https://github.com/marinade-finance/marinade-ts-sdk"
+  },
+  {
+    "name": "marinade-referral",
+    "program": "MR2LqxoSbw831bNy68utpu5n4YqBH3AzDmddkgk9LQv",
+    "idl": "https://raw.githubusercontent.com/Marinade-Finance/marinade-ts-sdk/main/src/programs/idl/json/marinade_referral.json",
+    "repo": "https://github.com/marinade-finance/marinade-ts-sdk"
+  },
+  {
+    "name": "whirlpool",
+    "program": "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",
+    "idl": "https://cdn.jsdelivr.net/npm/@orca-so/whirlpools-sdk@latest/dist/artifacts/whirlpool.json",
+    "repo": "https://github.com/orca-so/whirlpools"
+  },
+  {
+    "name": "staking-options",
+    "program": "4yx1NJ4Vqf2zT1oVLk4SySBhhDJXmXFt88ncm4gPxtL7",
+    "idl": "https://cdn.jsdelivr.net/npm/@dual-finance/staking-options@0.0.24/lib/staking_options_idl.json",
+    "repo": "https://github.com/DualFinance/staking-options"
+  }
+]
