@@ -28,5 +28,17 @@
     "program": "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK",
     "idl": "https://raw.githubusercontent.com/raydium-io/raydium-idl/master/raydium_clmm/raydium_clmm.json",
     "repo": "https://github.com/raydium-io/raydium-idl"
+  },
+  {
+    "name": "kamino-lending",
+    "program": "vELoC1audYbSYVRXn1vPaV8Axoa9oU6BYmNGZZBDZ1P",
+    "idl": "https://cdn.jsdelivr.net/npm/@kamino-finance/klend-sdk/dist/idl/klend.json",
+    "repo": "https://github.com/Kamino-Finance/klend"
+  },
+  {
+    "name": "drift",
+    "program": "dRiftyHA39MWEi3m9aunc5MzRF1JYuBsbn6VPcn33UH",
+    "idl": "https://cdn.jsdelivr.net/npm/@drift-labs/sdk/lib/node/idl/drift.json",
+    "repo": "https://github.com/drift-labs/protocol-v2"
   }
 ]
