@@ -8,12 +8,12 @@ not copied from a report.
 
 | program | address | status | drift detail |
 | --- | --- | --- | --- |
-| [marinade-finance](https://github.com/marinade-finance/marinade-ts-sdk) | `MarBmsSgKXdrN1egZf5sqe1TMai9K1rChYNDJgjq7aD` | ⚠️ error | exit 3 parse=ENOENT: no such file or directory, open '/tmp/idl-drift-ledger-8n0geU/idl-drift-report.json' |
-| [marinade-referral](https://github.com/marinade-finance/marinade-ts-sdk) | `MR2LqxoSbw831bNy68utpu5n4YqBH3AzDmddkgk9LQv` | ⚠️ error | exit 3 parse=ENOENT: no such file or directory, open '/tmp/idl-drift-ledger-8n0geU/idl-drift-report.json' |
-| [whirlpool](https://github.com/orca-so/whirlpools) | `whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc` | ⚠️ error | exit 3 parse=ENOENT: no such file or directory, open '/tmp/idl-drift-ledger-8n0geU/idl-drift-report.json' |
-| [staking-options](https://github.com/DualFinance/staking-options) | `4yx1NJ4Vqf2zT1oVLk4SySBhhDJXmXFt88ncm4gPxtL7` | ⚠️ error | exit 3 parse=ENOENT: no such file or directory, open '/tmp/idl-drift-ledger-8n0geU/idl-drift-report.json' |
+| [marinade-finance](https://github.com/marinade-finance/marinade-ts-sdk) | `MarBmsSgKXdrN1egZf5sqe1TMai9K1rChYNDJgjq7aD` | ✅ in sync | no drift |
+| [marinade-referral](https://github.com/marinade-finance/marinade-ts-sdk) | `MR2LqxoSbw831bNy68utpu5n4YqBH3AzDmddkgk9LQv` | 🔴 drift | `version`, `types`, `errors` |
+| [whirlpool](https://github.com/orca-so/whirlpools) | `whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc` | 🟡 legacy drift | `instructions`.close_bundled_position |
+| [staking-options](https://github.com/DualFinance/staking-options) | `4yx1NJ4Vqf2zT1oVLk4SySBhhDJXmXFt88ncm4gPxtL7` | ⚪ no on-chain IDL | no on-chain IDL account at metadata HARmBTYrLaJHySxWQKdAigNWUPGpkAxoTmRP3sb98qSh or anchor 39zsr5NmGQjNjb4hCT1Ka1PssyXM8Q1rtRzsUkEdE85K |
 
-_Last run: 2026-10-19T20:13:54.923Z — 0 in sync, 0 drifting, 0 without on-chain IDL, 4 errors._
+_Last run: 2026-10-19T20:15:03.645Z — 1 in sync, 2 drifting, 1 without on-chain IDL, 0 errors._
 
 ## Provenance
 
