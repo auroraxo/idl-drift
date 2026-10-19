@@ -261,6 +261,53 @@ await check(
     )
 );
 
+// Option B: legacy Anchor account as second diff site (senzenn Whirlpool gap).
+await check(
+  "legacy drift, canonical ok, fail-on-legacy-drift=false -> 0 + report kind",
+  0,
+  () =>
+    withCase(
+      { metadata: encodeMetadataAccount(programKey, committedIdl), anchor: encodeAnchorAccount({ ...committedIdl, version: "0.0.1" }) },
+      async ({ url, ws }) => {
+        const res = await runEntry({ ...baseInputs, INPUT_RPC_URL: url, GITHUB_WORKSPACE: ws });
+        if (res.code !== 0) return res;
+        const report = JSON.parse(await fs.readFile(path.join(ws, "idl-drift-report.json"), "utf8"));
+        if (report.rot?.kind !== "legacy_idl_drift") throw new Error(`kind=${report.rot?.kind}`);
+        if (report.checks.diff?.status !== "ok") throw new Error(`canonical diff=${report.checks.diff?.status}`);
+        if (report.checks.legacyAnchorDiff?.status !== "drift") throw new Error(`legacy=${report.checks.legacyAnchorDiff?.status}`);
+        return res;
+      }
+    )
+);
+
+await check(
+  "legacy drift, canonical ok, fail-on-legacy-drift=true -> 2",
+  2,
+  () =>
+    withCase(
+      { metadata: encodeMetadataAccount(programKey, committedIdl), anchor: encodeAnchorAccount({ ...committedIdl, version: "0.0.1" }) },
+      ({ url, ws }) =>
+        runEntry({ ...baseInputs, INPUT_RPC_URL: url, INPUT_FAIL_ON_LEGACY_DRIFT: "true", GITHUB_WORKSPACE: ws })
+    )
+);
+
+await check(
+  "both present and in sync, no legacy rot -> 0",
+  0,
+  () =>
+    withCase(
+      { metadata: encodeMetadataAccount(programKey, committedIdl), anchor: encodeAnchorAccount(committedIdl) },
+      async ({ url, ws }) => {
+        const res = await runEntry({ ...baseInputs, INPUT_RPC_URL: url, GITHUB_WORKSPACE: ws });
+        if (res.code !== 0) return res;
+        const report = JSON.parse(await fs.readFile(path.join(ws, "idl-drift-report.json"), "utf8"));
+        if (report.rot !== null) throw new Error(`rot=${JSON.stringify(report.rot)}`);
+        if (report.checks.legacyAnchorDiff?.status !== "ok") throw new Error(`legacy=${report.checks.legacyAnchorDiff?.status}`);
+        return res;
+      }
+    )
+);
+
 // Address derivation vectors, cross-checked against `solana find-program-derived-address`
 // / `solana create-address-with-seed` outputs (the same fixtures senzenn/idl-drift uses).
 const VECTORS = [

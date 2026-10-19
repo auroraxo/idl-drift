@@ -1,6 +1,6 @@
 {
   "name": "idl-drift",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "description": "GitHub Action: diff a committed Anchor IDL against the on-chain IDL account of a Solana program.",
   "type": "module",

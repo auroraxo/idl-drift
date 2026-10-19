@@ -28,6 +28,10 @@ inputs:
     description: 'Fail the step when no on-chain IDL account is published (true/false).'
     required: false
     default: 'false'
+  fail-on-legacy-drift:
+    description: 'Fail the step when the legacy Anchor IDL account drifts from the committed IDL while the canonical metadata account is in sync (true/false). Report-only by default.'
+    required: false
+    default: 'false'
 
 runs:
   using: 'node20'

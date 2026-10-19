@@ -253,6 +253,7 @@ async function main() {
   if (!idlPath) throw new Error("Missing required input: idl");
   const failOnDrift = readBool("fail-on-drift", true);
   const failOnMissing = readBool("fail-on-missing", false);
+  const failOnLegacyDrift = readBool("fail-on-legacy-drift", false);
   const rpcUrl = await resolveRpcUrl();
   const root = envPath();
   const absIdlPath = path.resolve(root, idlPath);
@@ -266,6 +267,7 @@ async function main() {
       onChainIdlAccount: { status: "pending" },
       decode: { status: "pending" },
       diff: { status: "pending" },
+      legacyAnchorDiff: { status: "skipped" },
     },
     rot: null,
     unresolvable: [],
@@ -396,8 +398,64 @@ async function main() {
   //    compare both sides with docs removed to avoid a false positive on
   //    every type that has documentation.
   const diff = diffIdl(stripDocs(committedIdl), stripDocs(onChainIdl));
+
+  // 4. Second diff site (Option B): when BOTH accounts exist, the legacy
+  //    Anchor account can silently carry a staler layout than the canonical
+  //    metadata account (real mainnet case: Whirlpool legacy 2KFq…cyn). Diff
+  //    it too, report-only unless fail-on-legacy-drift is set, so schedules
+  //    stay green while the stale publication becomes visible.
+  let legacyDiff = null;
+  if (hasMetadata && hasAnchor) {
+    let legacyDecode;
+    try {
+      legacyDecode = decodeAnchorIdlAccount(anchorAcc.data);
+    } catch (err) {
+      legacyDecode = { error: String(err?.message || err) };
+    }
+    if (legacyDecode.error) {
+      report.checks.legacyAnchorDiff = { status: "unresolvable", address: anchorAddr, error: legacyDecode.error };
+      report.unresolvable.push({ kind: "legacy_anchor_undecodable", detail: `${anchorAddr}: ${legacyDecode.error}` });
+    } else {
+      try {
+        const legacyIdl = JSON.parse(legacyDecode.text);
+        if (hasControlCharacter(legacyIdl)) {
+          report.checks.legacyAnchorDiff = { status: "unresolvable", address: anchorAddr, error: "control character" };
+          report.unresolvable.push({ kind: "legacy_anchor_control_character", detail: anchorAddr });
+        } else {
+          if (!legacyIdl.address) legacyIdl.address = program;
+          const ld = diffIdl(stripDocs(committedIdl), stripDocs(legacyIdl));
+          if (ld.ok) {
+            report.checks.legacyAnchorDiff = { status: "ok", address: anchorAddr };
+          } else {
+            report.checks.legacyAnchorDiff = {
+              status: "drift",
+              address: anchorAddr,
+              differences: ld.differences,
+            };
+            legacyDiff = ld.differences;
+          }
+        }
+      } catch (err) {
+        report.checks.legacyAnchorDiff = { status: "unresolvable", address: anchorAddr, error: err.message };
+        report.unresolvable.push({ kind: "legacy_anchor_json_parse", detail: `${anchorAddr}: ${err.message}` });
+      }
+    }
+  }
+
   if (diff.ok) {
     report.checks.diff = { status: "ok" };
+    if (legacyDiff) {
+      // Canonical is in sync but the legacy publication rotted: surface it.
+      report.rot = {
+        kind: "legacy_idl_drift",
+        source: "anchor-legacy",
+        differences: legacyDiff,
+        field: legacyDiff[0]?.field,
+        detail: legacyDiff.map(formatDifference).join("; "),
+      };
+      await writeSummary(report, failOnLegacyDrift ? 2 : 0);
+      return;
+    }
     report.rot = null;
     await writeSummary(report, 0);
     return;
@@ -434,6 +492,16 @@ async function writeSummary(report, exitCode) {
     } else {
       lines.push(`- on-chain idl: ${onChain.status}`);
     }
+    const legacy = report.checks.legacyAnchorDiff;
+    if (legacy && legacy.status !== "skipped") {
+      if (legacy.status === "ok") {
+        lines.push(`- legacy anchor idl: \`${legacy.address}\` in sync`);
+      } else if (legacy.status === "drift") {
+        lines.push(`- legacy anchor idl: \`${legacy.address}\` **drifted**`);
+      } else {
+        lines.push(`- legacy anchor idl: ${legacy.status}`);
+      }
+    }
     if (report.rot) {
       lines.push("", `**rot: ${report.rot.kind}**`);
       if (report.rot.differences?.length) {
@@ -441,6 +509,9 @@ async function writeSummary(report, exitCode) {
         for (const d of report.rot.differences) lines.push(`- ${formatDifference(d)}`);
       } else if (report.rot.detail) {
         lines.push(`detail: ${report.rot.detail}`);
+      }
+      if (report.rot.kind === "legacy_idl_drift") {
+        lines.push("", "(canonical metadata account is in sync; report-only unless `fail-on-legacy-drift: true`)");
       }
     } else if (report.unresolvable.length === 0) {
       lines.push("", "**no rot**");
@@ -463,7 +534,12 @@ async function writeSummary(report, exitCode) {
     const detail = report.rot.differences?.length
       ? `: ${report.rot.differences.map(formatDifference).join("; ")}`
       : `: ${report.rot.kind}`;
-    console.log(`::error::idl-drift: rot detected${detail}`);
+    // Report-only findings (exit 0) must not annotate a green run as an error.
+    if (exitCode === 0) {
+      console.log(`::warning::idl-drift: ${report.rot.kind} (report-only)${detail}`);
+    } else {
+      console.log(`::error::idl-drift: rot detected${detail}`);
+    }
   } else if (report.unresolvable.length === 0) {
     console.log(`::notice::idl-drift: no rot detected for ${report.program}`);
   }

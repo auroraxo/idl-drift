@@ -40,6 +40,11 @@ Inputs:
   IDL differ.
 - `fail-on-missing` (default `false`) — exit non-zero when the program has no
   published on-chain IDL account.
+- `fail-on-legacy-drift` (default `false`) — exit non-zero when BOTH the
+  canonical metadata account and the legacy Anchor `anchor:idl` account
+  exist, the canonical is in sync with the committed IDL, but the legacy
+  account has rotted. Report-only by default so a stale legacy publication
+  surfaces in the step summary without breaking a schedule.
 
 Exit codes:
 
@@ -50,6 +55,31 @@ Exit codes:
 
 A JSON report is always written to `idl-drift-report.json` in the workspace
 and a step summary table is rendered for the workflow log.
+
+## Two diff sites, not one
+
+A Solana program that has ever been upgraded with `anchor idl init` has a
+legacy `anchor:idl` account at `Pubkey::create_with_seed(PDA([]),
+"anchor:idl", program)` in addition to the canonical Program Metadata
+`idl` PDA. Anchor 1.0+ writes only the canonical one, but the legacy
+account is *not* closed — it stays on chain carrying whatever IDL was
+last published to it.
+
+Consequence: the canonical account can be perfectly in sync with the
+committed IDL while the legacy account silently carries a stale layout.
+Real mainnet case (Whirlpool, 2026-10-19): canonical IDL account
+`9fQgUeE2BpGXLHopvZhDKTskXV2druezgX6hpmscbya5` agrees with the
+published SDK IDL; legacy `anchor:idl` account
+`2KFqE4RWoPVbvodo8vbggCFeHPS8TDvgpwp79ALMrcyn` reports
+`instructions.close_bundled_position: changed` and the metadata account's
+no-drift answer is technically true but misses the real signal.
+
+`idl-drift` now diffs both accounts when both are present. The canonical
+diff keeps its current failure semantics; the legacy diff is report-only
+by default (`fail-on-legacy-drift: false`) and surfaces as a step-summary
+warning + `legacy_idl_drift` rot kind in the JSON report, so a single
+`schedule:` job stays green while the stale publication becomes visible
+to humans.
 
 ## Proof it works — this repo checks itself
 
@@ -78,7 +108,16 @@ npm test
 The test driver (`test/run.mjs`) does not hit the network. It builds a
 synthetic RPC response by Base64-encoding the committed IDL into a plausible
 on-chain IDL account payload, feeds it through the entrypoint's RPC client
-shim, and asserts the diff outcome.
+shim, and asserts the diff outcome. Coverage:
+
+- canonical metadata account, no drift, uncompressed + zlib
+- canonical metadata account, version drift, instruction drift
+- both accounts present, metadata wins, legacy drift (fail-on-legacy-drift
+  true / false), both in sync
+- legacy-only, missing (fail-on-missing true / false)
+- docs-stripping when on-chain IDL has no `docs`
+- address-derivation vectors cross-checked against `solana
+  find-program-derived-address` and `solana create-address-with-seed`
 
 ## Related
 
