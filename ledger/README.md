@@ -12,8 +12,9 @@ not copied from a report.
 | [marinade-referral](https://github.com/marinade-finance/marinade-ts-sdk) | `MR2LqxoSbw831bNy68utpu5n4YqBH3AzDmddkgk9LQv` | 🔴 drift | `version`, `types`, `errors` |
 | [whirlpool](https://github.com/orca-so/whirlpools) | `whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc` | 🟡 legacy drift | `instructions`.close_bundled_position |
 | [staking-options](https://github.com/DualFinance/staking-options) | `4yx1NJ4Vqf2zT1oVLk4SySBhhDJXmXFt88ncm4gPxtL7` | ⚪ no on-chain IDL | no on-chain IDL account at metadata HARmBTYrLaJHySxWQKdAigNWUPGpkAxoTmRP3sb98qSh or anchor 39zsr5NmGQjNjb4hCT1Ka1PssyXM8Q1rtRzsUkEdE85K |
+| [raydium-clmm](https://github.com/raydium-io/raydium-idl) | `CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK` | 🔴 drift | `instructions`, `accounts`, `types`, `errors` |
 
-_Last run: 2026-10-19T20:15:03.645Z — 1 in sync, 2 drifting, 1 without on-chain IDL, 0 errors._
+_Last run: 2026-10-19T20:55:59.550Z — 1 in sync, 3 drifting, 1 without on-chain IDL, 0 errors._
 
 ## Provenance
 
