@@ -14,7 +14,7 @@ not copied from a report.
 | [staking-options](https://github.com/DualFinance/staking-options) | `4yx1NJ4Vqf2zT1oVLk4SySBhhDJXmXFt88ncm4gPxtL7` | ⚪ no on-chain IDL | no on-chain IDL account at metadata HARmBTYrLaJHySxWQKdAigNWUPGpkAxoTmRP3sb98qSh or anchor 39zsr5NmGQjNjb4hCT1Ka1PssyXM8Q1rtRzsUkEdE85K |
 | [raydium-clmm](https://github.com/raydium-io/raydium-idl) | `CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK` | 🔴 drift | `instructions`, `accounts`, `types`, `errors` |
 
-_Last run: 2026-10-19T20:55:59.550Z — 1 in sync, 3 drifting, 1 without on-chain IDL, 0 errors._
+_Last run: 2026-10-19T20:56:40.200Z — 1 in sync, 3 drifting, 1 without on-chain IDL, 0 errors._
 
 ## Provenance
 
