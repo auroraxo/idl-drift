@@ -4,9 +4,11 @@ GitHub Action that diffs a committed Anchor IDL file against the on-chain IDL
 account of a Solana program and reports drift, or flags programs that never
 published an on-chain IDL at all.
 
-**Live: the [Solana IDL Drift Ledger](https://auroraxo.github.io/idl-drift/ledger/)** ([source table](./ledger/README.md)) — daily scheduled
-runs over a curated set of top Anchor programs, results committed as a
-browsable table of real findings (drift, legacy drift, missing on-chain IDL).
+## Live findings
+
+**[Solana IDL Drift Ledger](https://auroraxo.github.io/idl-drift/ledger/)** ([source table](./ledger/README.md)) checks committed IDLs against live mainnet for a curated set of Anchor programs. Its table shows confirmed drift, legacy drift, and missing on-chain IDLs with program addresses and detail. These are observations, not evidence that anyone else has adopted the tool.
+
+The [ledger workflow](.github/workflows/ledger.yml) has a daily GitHub Actions schedule. GitHub did not run its first scheduled slot on 2026-10-20; the latest published ledger was refreshed manually. A [guarded fallback](ledger/ensure-refresh.py) now checks for a missed schedule and dispatches the workflow if needed. Daily unattended refresh remains unproven until the next scheduled window runs.
 
 Two concrete problems it catches:
 
