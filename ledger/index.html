@@ -10,8 +10,9 @@ th,td{border-bottom:1px solid #d0d7de;padding:.5rem;text-align:left;vertical-ali
 th{background:#f6f8fa}code{font-size:12px}footer{color:#57606a;font-size:12px;margin-top:1.5rem}
 </style></head><body>
 <h1>Solana IDL Drift Ledger</h1>
-<p>Each row is a live diff of a published Anchor IDL against the program’s
-on-chain IDL account on mainnet, run by
+<p>Each row checks a published Anchor IDL against the requested program
+address. Matching IDLs are diffed against that program’s on-chain IDL account
+on mainnet; sources for another program are flagged without a diff. Run by
 <a href="https://github.com/auroraxo/idl-drift">auroraxo/idl-drift</a>.</p>
 <table><thead><tr><th>program</th><th>address</th><th>status</th><th>drift detail</th></tr></thead>
 <tbody><tr><td><a href="https://github.com/marinade-finance/marinade-ts-sdk">marinade-finance</a></td><td><code>MarBmsSgKXdrN1egZf5sqe1TMai9K1rChYNDJgjq7aD</code></td><td><span class="ok">in sync</span></td><td>no drift</td></tr>
@@ -25,6 +26,6 @@ on-chain IDL account on mainnet, run by
 <code>dRiftyHA39…</code> as drift by comparing it against a moving SDK IDL
 for the different program <code>vELoC1…</code>. That was not a valid drift
 finding; the row now identifies the source/target mismatch.</p>
-<footer>Last run: 2026-10-20T08:51:01.047Z — 2 in sync, 3 drifting, 1 without on-chain IDL, 1 errors.
+<footer>Last run: 2026-10-20T09:21:28.188Z — 2 in sync, 3 drifting, 1 without on-chain IDL, 1 errors.
 Source: <a href="https://github.com/auroraxo/idl-drift/blob/master/ledger/programs.json">programs.json</a></footer>
 </body></html>

@@ -134,10 +134,11 @@ const lines = [
   "# Solana IDL Drift Ledger",
   "",
   "Live check: for each program below, the committed/published Anchor IDL",
-  "(npm or GitHub source) is diffed against the program's **on-chain IDL",
-  "account** on mainnet, using [auroraxo/idl-drift](../README.md).",
-  "This is the raw material: every row here was produced by a real check,",
-  "not copied from a report.",
+  "(npm or GitHub source) is checked against the requested program address.",
+  "Matching sources are diffed against that program's **on-chain IDL account**",
+  "on mainnet, using [auroraxo/idl-drift](../README.md). Mismatched sources",
+  "are flagged without an on-chain comparison. Every row is produced by a",
+  "real check, not copied from a report.",
   "",
   "| program | address | status | drift detail |",
   "| --- | --- | --- | --- |",
@@ -191,8 +192,9 @@ th,td{border-bottom:1px solid #d0d7de;padding:.5rem;text-align:left;vertical-ali
 th{background:#f6f8fa}code{font-size:12px}footer{color:#57606a;font-size:12px;margin-top:1.5rem}
 </style></head><body>
 <h1>Solana IDL Drift Ledger</h1>
-<p>Each row is a live diff of a published Anchor IDL against the program’s
-on-chain IDL account on mainnet, run by
+<p>Each row checks a published Anchor IDL against the requested program
+address. Matching IDLs are diffed against that program’s on-chain IDL account
+on mainnet; sources for another program are flagged without a diff. Run by
 <a href="https://github.com/auroraxo/idl-drift">auroraxo/idl-drift</a>.</p>
 <table><thead><tr><th>program</th><th>address</th><th>status</th><th>drift detail</th></tr></thead>
 <tbody>${rows.join("\n")}</tbody></table>

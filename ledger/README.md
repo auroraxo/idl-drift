@@ -1,10 +1,11 @@
 # Solana IDL Drift Ledger
 
 Live check: for each program below, the committed/published Anchor IDL
-(npm or GitHub source) is diffed against the program's **on-chain IDL
-account** on mainnet, using [auroraxo/idl-drift](../README.md).
-This is the raw material: every row here was produced by a real check,
-not copied from a report.
+(npm or GitHub source) is checked against the requested program address.
+Matching sources are diffed against that program's **on-chain IDL account**
+on mainnet, using [auroraxo/idl-drift](../README.md). Mismatched sources
+are flagged without an on-chain comparison. Every row is produced by a
+real check, not copied from a report.
 
 | program | address | status | drift detail |
 | --- | --- | --- | --- |
@@ -16,7 +17,7 @@ not copied from a report.
 | [kamino-lending](https://github.com/Kamino-Finance/klend) | `KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD` | ✅ in sync | no drift |
 | [drift](https://github.com/drift-labs/protocol-v2) | `dRiftyHA39MWEi3m9aunc5MzRF1JYuBsbn6VPcn33UH` | ⚠️ source/target mismatch | source IDL declares vELoC1audYbSYVRXn1vPaV8Axoa9oU6BYmNGZZBDZ1P; requested program is dRiftyHA39MWEi3m9aunc5MzRF1JYuBsbn6VPcn33UH; no on-chain comparison made |
 
-_Last run: 2026-10-20T08:51:01.047Z — 2 in sync, 3 drifting, 1 without on-chain IDL, 1 errors._
+_Last run: 2026-10-20T09:21:28.188Z — 2 in sync, 3 drifting, 1 without on-chain IDL, 1 errors._
 
 ## Correction (2026-10-20)
 
