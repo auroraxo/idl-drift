@@ -8,8 +8,9 @@
     "node": ">=20"
   },
   "scripts": {
-    "test": "node test/run.mjs",
-    "check-links": "node ledger/check-links.mjs"
+    "test": "node test/run.mjs && node test/freshness.mjs",
+    "check-links": "node ledger/check-links.mjs",
+    "check-freshness": "node ledger/check-freshness.mjs"
   },
   "files": [
     "src",

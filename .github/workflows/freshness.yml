@@ -1,0 +1,42 @@
+name: freshness
+
+# The ledger's table is generated; the status sentences around it are not, and
+# nothing used to fail when the two disagreed. Three times on 2026-10-20 the
+# public artifact claimed a status the evidence did not support: a drift row
+# built from another program's IDL, a row linked to an org rename that 404s,
+# and a README paragraph saying the daily schedule had never fired hours after
+# a successful scheduled run.
+#
+# This job is the freshness contract. It fails when any published claim of a
+# check disagrees with the generated data, and when the ledger stops being
+# refreshed — in which case every number in the table is historical.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - "ledger/README.md"
+      - "ledger/index.html"
+      - "ledger/check-freshness.mjs"
+      - "ledger/run.mjs"
+      - "README.md"
+      - ".github/workflows/freshness.yml"
+  schedule:
+    - cron: "41 6 * * *" # daily 06:41 UTC, after the ledger refresh slot
+
+permissions:
+  contents: read
+
+jobs:
+  freshness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Published status must agree with the generated ledger
+        run: node ledger/check-freshness.mjs --json
+      - name: Offline tests
+        run: node test/freshness.mjs
