@@ -286,6 +286,18 @@ async function main() {
     return;
   }
 
+  // An IDL with an explicit address must belong to the requested program.
+  // Comparing IDLs from different programs produces a false drift finding.
+  if (typeof committedIdl.address === "string" && committedIdl.address !== program) {
+    report.checks.decode.committed.sourceAddress = committedIdl.address;
+    report.unresolvable.push({
+      kind: "source_program_mismatch",
+      detail: `source IDL declares ${committedIdl.address}; requested program is ${program}; no on-chain comparison made`,
+    });
+    await writeSummary(report, 0);
+    return;
+  }
+
   // 2. Derive both possible IDL account addresses, fetch them, decode whichever
   //    is present. Order: canonical metadata (Anchor 1.0+), then legacy anchor.
   let programKey;

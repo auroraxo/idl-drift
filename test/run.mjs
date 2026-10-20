@@ -161,6 +161,24 @@ async function withCase(accounts, fn) {
 const baseInputs = { INPUT_PROGRAM: PROGRAM, INPUT_IDL: "idl.json" };
 
 await check(
+  "source IDL for another program is not counted as drift",
+  0,
+  () =>
+    withCase({ metadata: encodeMetadataAccount(programKey, committedIdl), anchor: null }, async ({ url, ws }) => {
+      await fs.writeFile(path.join(ws, "idl.json"), JSON.stringify({
+        ...committedIdl,
+        address: "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",
+      }));
+      const res = await runEntry({ ...baseInputs, INPUT_RPC_URL: url, GITHUB_WORKSPACE: ws });
+      const report = JSON.parse(await fs.readFile(path.join(ws, "idl-drift-report.json"), "utf8"));
+      if (report.rot !== null || !report.unresolvable.some((u) => u.kind === "source_program_mismatch")) {
+        throw new Error(`wrong-program source must not be a drift finding: ${JSON.stringify(report)}`);
+      }
+      return res;
+    })
+);
+
+await check(
   "no drift (metadata, uncompressed) -> 0",
   0,
   () =>

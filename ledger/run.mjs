@@ -40,6 +40,17 @@ async function runOne(t) {
     await fs.copyFile(path.join(root, t.idl), idlPath);
   }
 
+  let sourceIdl;
+  try {
+    sourceIdl = JSON.parse(await fs.readFile(idlPath, "utf8"));
+  } catch (err) {
+    return { ...t, status: "idl_source_error", detail: `source IDL is not JSON: ${err.message}` };
+  }
+  if (typeof sourceIdl.address === "string" && sourceIdl.address !== t.program) {
+    return { ...t, status: "source_program_mismatch",
+      detail: `source IDL declares ${sourceIdl.address}; requested program is ${t.program}; no on-chain comparison made` };
+  }
+
   const code = await new Promise((resolve) => {
     const p = spawn(process.execPath, [entry], {
       cwd: workspace,
@@ -103,7 +114,7 @@ for (const t of targets) {
 const now = new Date();
 const drifted = results.filter((r) => r.status.startsWith("idl_drift") || r.status === "legacy_idl_drift");
 const missing = results.filter((r) => r.status === "on_chain_idl_missing");
-const errored = results.filter((r) => ["idl_source_error", "no_report"].includes(r.status));
+const errored = results.filter((r) => ["idl_source_error", "no_report", "source_program_mismatch"].includes(r.status));
 const clean = results.filter((r) => r.status === "ok");
 
 function row(r) {
@@ -111,6 +122,7 @@ function row(r) {
     r.status === "ok" ? "✅ in sync" :
     r.status === "on_chain_idl_missing" ? "⚪ no on-chain IDL" :
     r.status.startsWith("legacy") ? "🟡 legacy drift" :
+    r.status === "source_program_mismatch" ? "⚠️ source/target mismatch" :
     errored.includes(r) ? "⚠️ error" : "🔴 drift";
   const diff = r.differences?.length
     ? r.differences.map((d) => `\`${d.field}\`${d.entry ? `.${d.entry}` : ""}`).join(", ")
@@ -133,6 +145,13 @@ const lines = [
   "",
   `_Last run: ${now.toISOString()} — ${clean.length} in sync, ${drifted.length} drifting, ${missing.length} without on-chain IDL, ${errored.length} errors._`,
   "",
+  "## Correction (2026-10-20)",
+  "",
+  "The earlier ledger counted **drift** for `dRiftyHA39…` by comparing it with a",
+  "moving `@drift-labs/sdk` IDL declaring **another program**, `vELoC1…`.",
+  "That comparison did not prove drift for the requested program. It is now",
+  "marked as a source/target mismatch, not an upstream finding.",
+  "",
   "## Provenance",
   "",
   "- Workflow: [`.github/workflows/ledger.yml`](../blob/master/.github/workflows/ledger.yml)",
@@ -150,6 +169,7 @@ const rows = results.map((r) => {
     r.status === "ok" ? '<span class="ok">in sync</span>' :
     r.status === "on_chain_idl_missing" ? '<span class="miss">no on-chain IDL</span>' :
     r.status.startsWith("legacy") ? '<span class="warn">legacy drift</span>' :
+    r.status === "source_program_mismatch" ? '<span class="warn">source/target mismatch</span>' :
     r.status === "ok" ? "" : '<span class="bad">drift</span>';
   const diff = r.differences?.length
     ? r.differences.map((d) => `<code>${esc(d.field)}${d.entry ? "." + esc(d.entry) : ""}</code>`).join(", ")
@@ -176,6 +196,10 @@ on-chain IDL account on mainnet, run by
 <a href="https://github.com/auroraxo/idl-drift">auroraxo/idl-drift</a>.</p>
 <table><thead><tr><th>program</th><th>address</th><th>status</th><th>drift detail</th></tr></thead>
 <tbody>${rows.join("\n")}</tbody></table>
+<p><strong>Correction (2026-10-20):</strong> The earlier ledger counted
+<code>dRiftyHA39…</code> as drift by comparing it against a moving SDK IDL
+for the different program <code>vELoC1…</code>. That was not a valid drift
+finding; the row now identifies the source/target mismatch.</p>
 <footer>Last run: ${now.toISOString()} — ${clean.length} in sync, ${drifted.length} drifting, ${missing.length} without on-chain IDL, ${errored.length} errors.
 Source: <a href="https://github.com/auroraxo/idl-drift/blob/master/ledger/programs.json">programs.json</a></footer>
 </body></html>\n`;

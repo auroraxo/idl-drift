@@ -14,9 +14,16 @@ not copied from a report.
 | [staking-options](https://github.com/DualFinance/staking-options) | `4yx1NJ4Vqf2zT1oVLk4SySBhhDJXmXFt88ncm4gPxtL7` | ⚪ no on-chain IDL | no on-chain IDL account at metadata HARmBTYrLaJHySxWQKdAigNWUPGpkAxoTmRP3sb98qSh or anchor 39zsr5NmGQjNjb4hCT1Ka1PssyXM8Q1rtRzsUkEdE85K |
 | [raydium-clmm](https://github.com/raydium-io/raydium-idl) | `CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK` | 🔴 drift | `instructions`, `accounts`, `types`, `errors` |
 | [kamino-lending](https://github.com/Kamino-Finance/klend) | `KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD` | ✅ in sync | no drift |
-| [drift](https://github.com/drift-labs/protocol-v2) | `dRiftyHA39MWEi3m9aunc5MzRF1JYuBsbn6VPcn33UH` | 🔴 drift | `instructions`, `accounts`, `types`, `errors` |
+| [drift](https://github.com/drift-labs/protocol-v2) | `dRiftyHA39MWEi3m9aunc5MzRF1JYuBsbn6VPcn33UH` | ⚠️ source/target mismatch | source IDL declares vELoC1audYbSYVRXn1vPaV8Axoa9oU6BYmNGZZBDZ1P; requested program is dRiftyHA39MWEi3m9aunc5MzRF1JYuBsbn6VPcn33UH; no on-chain comparison made |
 
-_Last run: 2026-10-20T07:31:15.755Z — 2 in sync, 4 drifting, 1 without on-chain IDL, 0 errors._
+_Last run: 2026-10-20T08:51:01.047Z — 2 in sync, 3 drifting, 1 without on-chain IDL, 1 errors._
+
+## Correction (2026-10-20)
+
+The earlier ledger counted **drift** for `dRiftyHA39…` by comparing it with a
+moving `@drift-labs/sdk` IDL declaring **another program**, `vELoC1…`.
+That comparison did not prove drift for the requested program. It is now
+marked as a source/target mismatch, not an upstream finding.
 
 ## Provenance
 
