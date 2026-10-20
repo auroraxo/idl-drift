@@ -350,11 +350,18 @@ async function main() {
 
   // An IDL with an explicit address must belong to the requested program.
   // Comparing IDLs from different programs produces a false drift finding.
-  if (typeof committedIdl.address === "string" && committedIdl.address !== program) {
-    report.checks.decode.committed.sourceAddress = committedIdl.address;
+  // An empty address (common in npm-published IDLs, e.g. marginfi_0.1.7.json)
+  // declares nothing, so it must not be read as a mismatch — that silently
+  // skipped the comparison and reported "no rot" for a real drift case.
+  const declaredAddress =
+    typeof committedIdl.address === "string" && committedIdl.address.trim() !== ""
+      ? committedIdl.address.trim()
+      : null;
+  if (declaredAddress !== null && declaredAddress !== program) {
+    report.checks.decode.committed.sourceAddress = declaredAddress;
     report.unresolvable.push({
       kind: "source_program_mismatch",
-      detail: `source IDL declares ${committedIdl.address}; requested program is ${program}; no on-chain comparison made`,
+      detail: `source IDL declares ${declaredAddress}; requested program is ${program}; no on-chain comparison made`,
     });
     await writeSummary(report, 0);
     return;

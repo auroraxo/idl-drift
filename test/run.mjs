@@ -179,6 +179,30 @@ await check(
 );
 
 await check(
+  "source IDL with an empty address is compared, not treated as a mismatch",
+  0,
+  () =>
+    withCase({ metadata: encodeMetadataAccount(programKey, committedIdl), anchor: null }, async ({ url, ws }) => {
+      // npm-published IDLs often ship address: "" (marginfi_0.1.7.json). That
+      // declares nothing and must not short-circuit into source_program_mismatch,
+      // which silently skipped the on-chain comparison.
+      await fs.writeFile(path.join(ws, "idl.json"), JSON.stringify({
+        ...committedIdl,
+        address: "",
+      }));
+      const res = await runEntry({ ...baseInputs, INPUT_RPC_URL: url, GITHUB_WORKSPACE: ws });
+      const report = JSON.parse(await fs.readFile(path.join(ws, "idl-drift-report.json"), "utf8"));
+      if (report.unresolvable.some((u) => u.kind === "source_program_mismatch")) {
+        throw new Error(`empty address must not be read as a mismatch: ${JSON.stringify(report)}`);
+      }
+      if (report.checks.onChainIdlAccount.status !== "ok" || report.checks.diff.status !== "ok") {
+        throw new Error(`empty address must still reach the on-chain diff: ${JSON.stringify(report.checks)}`);
+      }
+      return res;
+    })
+);
+
+await check(
   "no drift (metadata, uncompressed) -> 0",
   0,
   () =>
