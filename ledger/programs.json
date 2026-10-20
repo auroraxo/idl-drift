@@ -31,7 +31,7 @@
   },
   {
     "name": "kamino-lending",
-    "program": "vELoC1audYbSYVRXn1vPaV8Axoa9oU6BYmNGZZBDZ1P",
+    "program": "KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD",
     "idl": "https://cdn.jsdelivr.net/npm/@kamino-finance/klend-sdk/dist/idl/klend.json",
     "repo": "https://github.com/Kamino-Finance/klend"
   },

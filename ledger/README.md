@@ -13,10 +13,10 @@ not copied from a report.
 | [whirlpool](https://github.com/orca-so/whirlpools) | `whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc` | 🟡 legacy drift | `instructions`.close_bundled_position |
 | [staking-options](https://github.com/DualFinance/staking-options) | `4yx1NJ4Vqf2zT1oVLk4SySBhhDJXmXFt88ncm4gPxtL7` | ⚪ no on-chain IDL | no on-chain IDL account at metadata HARmBTYrLaJHySxWQKdAigNWUPGpkAxoTmRP3sb98qSh or anchor 39zsr5NmGQjNjb4hCT1Ka1PssyXM8Q1rtRzsUkEdE85K |
 | [raydium-clmm](https://github.com/raydium-io/raydium-idl) | `CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK` | 🔴 drift | `instructions`, `accounts`, `types`, `errors` |
-| [kamino-lending](https://github.com/Kamino-Finance/klend) | `vELoC1audYbSYVRXn1vPaV8Axoa9oU6BYmNGZZBDZ1P` | 🔴 drift | `version`, `name`, `instructions`, `accounts`, `types`, `errors` |
+| [kamino-lending](https://github.com/Kamino-Finance/klend) | `KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD` | ✅ in sync | no drift |
 | [drift](https://github.com/drift-labs/protocol-v2) | `dRiftyHA39MWEi3m9aunc5MzRF1JYuBsbn6VPcn33UH` | 🔴 drift | `instructions`, `accounts`, `types`, `errors` |
 
-_Last run: 2026-10-19T21:38:09.022Z — 1 in sync, 5 drifting, 1 without on-chain IDL, 0 errors._
+_Last run: 2026-10-20T00:40:24.408Z — 2 in sync, 4 drifting, 1 without on-chain IDL, 0 errors._
 
 ## Provenance
 
