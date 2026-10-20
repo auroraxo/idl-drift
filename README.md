@@ -4,7 +4,7 @@ GitHub Action that diffs a committed Anchor IDL file against the on-chain IDL
 account of a Solana program and reports drift, or flags programs that never
 published an on-chain IDL at all.
 
-**Live: the [Solana IDL Drift Ledger](./ledger/README.md)** — daily scheduled
+**Live: the [Solana IDL Drift Ledger](https://auroraxo.github.io/idl-drift/ledger/)** ([source table](./ledger/README.md)) — daily scheduled
 runs over a curated set of top Anchor programs, results committed as a
 browsable table of real findings (drift, legacy drift, missing on-chain IDL).
 
