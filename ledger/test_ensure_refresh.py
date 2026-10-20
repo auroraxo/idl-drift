@@ -26,6 +26,14 @@ class FixedDateTime(dt.datetime):
         return cls(2026, 10, 20, 7, 2, tzinfo=tz)
 
 
+class LateDateTime(dt.datetime):
+    """Past the measured 8h delivery envelope (slot 05:17 + 8h = 13:17)."""
+
+    @classmethod
+    def now(cls, tz=None):
+        return cls(2026, 10, 20, 14, 0, tzinfo=tz)
+
+
 class EnsureRefreshTests(unittest.TestCase):
     def check(self, records, gh=None):
         with patch.object(fallback.dt, "datetime", FixedDateTime), \
@@ -51,8 +59,29 @@ class EnsureRefreshTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "inspect instead of retrying"):
             self.check([run(13, "workflow_dispatch", conclusion="failure")])
 
+    def test_within_delivery_envelope_not_judged_a_miss(self):
+        """No run yet at 07:02 is normal here: schedules arrive +4h46m..+7h10m late."""
+        with patch.object(fallback.dt, "datetime", FixedDateTime), \
+             patch.object(fallback, "runs", return_value=[]), \
+             patch.object(fallback, "gh") as gh_call, \
+             contextlib.redirect_stdout(io.StringIO()) as out:
+            fallback.main()
+        gh_call.assert_not_called()
+        self.assertIn("not judged a miss, no dispatch", out.getvalue())
+
+    def test_before_slot_floor_still_raises_too_early(self):
+        class EarlyDateTime(dt.datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return cls(2026, 10, 20, 5, 30, tzinfo=tz)
+
+        with patch.object(fallback.dt, "datetime", EarlyDateTime), \
+             patch.object(fallback, "runs", return_value=[]):
+            with self.assertRaisesRegex(RuntimeError, "Too early"):
+                fallback.main()
+
     def test_missed_slot_dispatches_and_verifies_success(self):
-        new = run(14, "workflow_dispatch", created="2026-10-20T07:02:30Z")
+        new = run(14, "workflow_dispatch", created="2026-10-20T14:00:30Z")
         api_calls = []
 
         def fake_gh(*args):
@@ -63,13 +92,33 @@ class EnsureRefreshTests(unittest.TestCase):
                 return json.dumps(new)
             raise AssertionError(args)
 
-        with patch.object(fallback.dt, "datetime", FixedDateTime), \
+        with patch.object(fallback.dt, "datetime", LateDateTime), \
              patch.object(fallback, "runs", side_effect=[[], [new]]), \
              patch.object(fallback.time, "sleep"), \
              patch.object(fallback, "gh", side_effect=fake_gh), \
              contextlib.redirect_stdout(io.StringIO()):
             fallback.main()
         self.assertTrue(any(args[:2] == ("workflow", "run") for args in api_calls))
+
+    def test_grace_override_shortens_the_window(self):
+        """LEDGER_GRACE_MINUTES / GRACE_MINUTES is the one knob that gates dispatch."""
+        new = run(15, "workflow_dispatch", created="2026-10-20T07:02:30Z")
+        dispatched = []
+
+        def fake_gh(*args):
+            if args[:2] == ("workflow", "run"):
+                dispatched.append(args)
+                return ""
+            raise AssertionError(args)
+
+        with patch.object(fallback, "GRACE_MINUTES", 45), \
+             patch.object(fallback.dt, "datetime", FixedDateTime), \
+             patch.object(fallback, "runs", side_effect=[[], [new]]), \
+             patch.object(fallback.time, "sleep"), \
+             patch.object(fallback, "gh", side_effect=fake_gh), \
+             contextlib.redirect_stdout(io.StringIO()):
+            fallback.main()
+        self.assertTrue(dispatched)
 
 
 if __name__ == "__main__":
