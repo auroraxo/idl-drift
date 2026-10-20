@@ -1,0 +1,36 @@
+name: ledger-links
+
+# The ledger renders a row for every entry in ledger/programs.json, including a
+# link to the upstream repository. When an upstream org is renamed or a repo is
+# deleted, the row keeps rendering exactly as before — the check behind it no
+# longer points at anything, but nothing in the output says so. That happened
+# once: DualFinance/staking-options was renamed to Dual-Finance and the ledger
+# linked to a 404 for days.
+#
+# This workflow fails loudly while any configured source is dead. It does not
+# touch the ledger refresh path and deliberately shares no schedule with it.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - "ledger/programs.json"
+      - "ledger/check-links.mjs"
+      - ".github/workflows/ledger-links.yml"
+  schedule:
+    - cron: "23 4 * * 1" # Mondays 04:23 UTC, away from the ledger refresh slot
+
+permissions:
+  contents: read
+
+jobs:
+  link-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Check every ledger source still resolves
+        run: node ledger/check-links.mjs

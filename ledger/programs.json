@@ -21,7 +21,7 @@
     "name": "staking-options",
     "program": "4yx1NJ4Vqf2zT1oVLk4SySBhhDJXmXFt88ncm4gPxtL7",
     "idl": "https://cdn.jsdelivr.net/npm/@dual-finance/staking-options@0.0.24/lib/staking_options_idl.json",
-    "repo": "https://github.com/DualFinance/staking-options"
+    "repo": "https://github.com/Dual-Finance/staking-options"
   },
   {
     "name": "raydium-clmm",
