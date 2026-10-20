@@ -29,4 +29,4 @@ marked as a source/target mismatch, not an upstream finding.
 
 - Workflow: [`.github/workflows/ledger.yml`](../blob/master/.github/workflows/ledger.yml)
 - Program list: [`ledger/programs.json`](./programs.json)
-- Findings corroborated by external review: [MarinadeFinance/marinade-ts-sdk#111](https://github.com/MarinadeFinance/marinade-ts-sdk/issues/111)
+- Related upstream report: [marinade-finance/marinade-ts-sdk#111](https://github.com/marinade-finance/marinade-ts-sdk/issues/111)
