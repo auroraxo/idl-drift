@@ -17,7 +17,7 @@ real check, not copied from a report.
 | [kamino-lending](https://github.com/Kamino-Finance/klend) | `KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD` | ✅ in sync | no drift |
 | [drift](https://github.com/drift-labs/protocol-v2) | `dRiftyHA39MWEi3m9aunc5MzRF1JYuBsbn6VPcn33UH` | ⚠️ source/target mismatch | source IDL declares vELoC1audYbSYVRXn1vPaV8Axoa9oU6BYmNGZZBDZ1P; requested program is dRiftyHA39MWEi3m9aunc5MzRF1JYuBsbn6VPcn33UH; no on-chain comparison made |
 
-_Last run: 2026-10-20T09:25:03.604Z — 2 in sync, 3 drifting, 1 without on-chain IDL, 1 source/target mismatch, 0 errors._
+_Last run: 2026-10-20T10:03:08.720Z — 2 in sync, 3 drifting, 1 without on-chain IDL, 1 source/target mismatch, 0 errors._
 
 ## Correction (2026-10-20)
 
