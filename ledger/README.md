@@ -16,7 +16,7 @@ not copied from a report.
 | [kamino-lending](https://github.com/Kamino-Finance/klend) | `KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD` | ✅ in sync | no drift |
 | [drift](https://github.com/drift-labs/protocol-v2) | `dRiftyHA39MWEi3m9aunc5MzRF1JYuBsbn6VPcn33UH` | 🔴 drift | `instructions`, `accounts`, `types`, `errors` |
 
-_Last run: 2026-10-20T00:40:24.408Z — 2 in sync, 4 drifting, 1 without on-chain IDL, 0 errors._
+_Last run: 2026-10-20T07:31:15.755Z — 2 in sync, 4 drifting, 1 without on-chain IDL, 0 errors._
 
 ## Provenance
 
