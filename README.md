@@ -8,7 +8,7 @@ published an on-chain IDL at all.
 
 **[Solana IDL Drift Ledger](https://auroraxo.github.io/idl-drift/ledger/)** ([source table](./ledger/README.md)) checks committed IDLs against live mainnet for a curated set of Anchor programs. Its table shows confirmed drift, legacy drift, and missing on-chain IDLs with program addresses and detail. These are observations, not evidence that anyone else has adopted the tool.
 
-The [ledger workflow](.github/workflows/ledger.yml) has a daily GitHub Actions schedule. GitHub did not run its first scheduled slot on 2026-10-20; the latest published ledger was refreshed manually. A [guarded fallback](ledger/ensure-refresh.py) now checks for a missed schedule and dispatches the workflow if needed. Daily unattended refresh remains unproven until the next scheduled window runs.
+The [ledger workflow](.github/workflows/ledger.yml) has a daily GitHub Actions schedule (`17 5 * * *` UTC) plus a [guarded fallback](ledger/ensure-refresh.py) that checks daily whether the schedule actually ran and dispatches the workflow exactly once if it did not. The first scheduled window (2026-10-20 05:17 UTC) was delivered late rather than skipped: [run 39405114846](https://github.com/auroraxo/idl-drift/actions/runs/39405114846) started 10:02 UTC with no manual dispatch, committed the refreshed ledger, and Pages rebuilt the published table. That is one unattended run, not a track record — the daily cadence is what still needs to be established by subsequent windows, and the `_Last run_` timestamp in the [ledger footer](https://auroraxo.github.io/idl-drift/ledger/) is the freshness signal, not this paragraph.
 
 Two concrete problems it catches:
 
@@ -97,9 +97,9 @@ local checkout against the committed real Marinade IDL
 `9jWC3EixD3D7ChMrrSRw3opnGHQ8YxZGJqGkzcup3tAn`) on every push to
 `src/`/`testdata/` plus a weekly schedule.
 
-- Latest dogfood run: https://github.com/auroraxo/idl-drift/actions/runs/39065611799 — `no rot detected`, exit 0, report artifact uploaded.
+- Latest dogfood run (2026-10-20): https://github.com/auroraxo/idl-drift/actions/runs/39396513316 — `no rot detected`, exit 0, report artifact uploaded.
 - Real-repo usage examples for two programs with committed IDLs: [`examples/marinade.yml`](examples/marinade.yml) and [`examples/whirlpool.yml`](examples/whirlpool.yml) (the Whirlpool example fetches the published SDK IDL from the npm CDN, the way a consumer would).
-- Both examples are also exercised in CI by [`.github/workflows/examples.yml`](.github/workflows/examples.yml) on every push to `examples/`/`src/` plus a weekly schedule, against live mainnet — latest run: https://github.com/auroraxo/idl-drift/actions/runs/39074838554 (both legs green).
+- Both examples are also exercised in CI by [`.github/workflows/examples.yml`](.github/workflows/examples.yml) on every push to `examples/`/`src/` plus a weekly schedule, against live mainnet — latest run (2026-10-20): https://github.com/auroraxo/idl-drift/actions/runs/39396513614 (both legs green; the Whirlpool leg reports the expected `legacy_idl_drift` warning as report-only).
 
 Copy the dogfood pattern into your own repo with the Quickstart above —
 the only required inputs are a program id and a path to the IDL JSON you
