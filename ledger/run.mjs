@@ -114,7 +114,9 @@ for (const t of targets) {
 const now = new Date();
 const drifted = results.filter((r) => r.status.startsWith("idl_drift") || r.status === "legacy_idl_drift");
 const missing = results.filter((r) => r.status === "on_chain_idl_missing");
-const errored = results.filter((r) => ["idl_source_error", "no_report", "source_program_mismatch"].includes(r.status));
+const mismatched = results.filter((r) => r.status === "source_program_mismatch");
+const mismatchLabel = `${mismatched.length} source/target mismatch${mismatched.length === 1 ? "" : "es"}`;
+const errored = results.filter((r) => ["idl_source_error", "no_report"].includes(r.status));
 const clean = results.filter((r) => r.status === "ok");
 
 function row(r) {
@@ -144,7 +146,7 @@ const lines = [
   "| --- | --- | --- | --- |",
   ...results.map(row),
   "",
-  `_Last run: ${now.toISOString()} — ${clean.length} in sync, ${drifted.length} drifting, ${missing.length} without on-chain IDL, ${errored.length} errors._`,
+  `_Last run: ${now.toISOString()} — ${clean.length} in sync, ${drifted.length} drifting, ${missing.length} without on-chain IDL, ${mismatchLabel}, ${errored.length} errors._`,
   "",
   "## Correction (2026-10-20)",
   "",
@@ -202,8 +204,8 @@ on mainnet; sources for another program are flagged without a diff. Run by
 <code>dRiftyHA39…</code> as drift by comparing it against a moving SDK IDL
 for the different program <code>vELoC1…</code>. That was not a valid drift
 finding; the row now identifies the source/target mismatch.</p>
-<footer>Last run: ${now.toISOString()} — ${clean.length} in sync, ${drifted.length} drifting, ${missing.length} without on-chain IDL, ${errored.length} errors.
+<footer>Last run: ${now.toISOString()} — ${clean.length} in sync, ${drifted.length} drifting, ${missing.length} without on-chain IDL, ${mismatchLabel}, ${errored.length} errors.
 Source: <a href="https://github.com/auroraxo/idl-drift/blob/master/ledger/programs.json">programs.json</a></footer>
 </body></html>\n`;
 await fs.writeFile(path.join(here, "index.html"), html);
-console.log(`ledger README + index.html written: ${clean.length} ok / ${drifted.length} drift / ${missing.length} missing / ${errored.length} error`);
+console.log(`ledger README + index.html written: ${clean.length} ok / ${drifted.length} drift / ${missing.length} missing / ${mismatched.length} source mismatch / ${errored.length} error`);
