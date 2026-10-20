@@ -4,7 +4,7 @@
 <title>Solana IDL Drift Ledger</title>
 <style>
 body{font:15px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;margin:2rem auto;max-width:70rem;padding:0 1rem;color:#1f2328}
-h1{font-size:1.4rem}a{color:#0969da}.ok{color:#1a7f37}.bad{color:#cf222e}.warn{color:#9a6700}.miss{color:#57606a}
+h1{font-size:1.4rem}a{color:#0969da}.ok{color:#1a7f37}.bad{color:#cf222e}.warn{color:#9a6700}.miss{color:#57606a}.label{color:#6639ba}
 table{border-collapse:collapse;width:100%;font-size:13px}
 th,td{border-bottom:1px solid #d0d7de;padding:.5rem;text-align:left;vertical-align:top}
 th{background:#f6f8fa}code{font-size:12px}footer{color:#57606a;font-size:12px;margin-top:1.5rem}
@@ -20,15 +20,15 @@ on mainnet; sources for another program are flagged without a diff. Run by
 <tr><td><a href="https://github.com/orca-so/whirlpools">whirlpool</a></td><td><code>whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc</code></td><td><span class="warn">legacy drift</span></td><td><code>instructions.close_bundled_position</code></td></tr>
 <tr><td><a href="https://github.com/Dual-Finance/staking-options">staking-options</a></td><td><code>4yx1NJ4Vqf2zT1oVLk4SySBhhDJXmXFt88ncm4gPxtL7</code></td><td><span class="miss">no on-chain IDL</span></td><td>no on-chain IDL account at metadata HARmBTYrLaJHySxWQKdAigNWUPGpkAxoTmRP3sb98qSh or anchor 39zsr5NmGQjNjb4hCT1Ka1PssyXM8Q1rtRzsUkEdE85K</td></tr>
 <tr><td><a href="https://github.com/raydium-io/raydium-idl">raydium-clmm</a></td><td><code>CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK</code></td><td><span class="bad">drift</span></td><td><code>instructions</code>, <code>accounts</code>, <code>types</code>, <code>errors</code></td></tr>
-<tr><td><a href="https://github.com/Kamino-Finance/klend">kamino-lending</a></td><td><code>KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD</code></td><td><span class="bad">drift</span></td><td><code>version</code>, <code>instructions.liquidateObligationAndRedeemReserveCollateral</code></td></tr>
+<tr><td><a href="https://github.com/Kamino-Finance/klend">kamino-lending</a></td><td><code>KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD</code></td><td><span class="label">labels only</span></td><td><code>version</code>, <code>instructions.liquidateObligationAndRedeemReserveCollateral</code></td></tr>
 <tr><td><a href="https://github.com/drift-labs/protocol-v2">drift</a></td><td><code>dRiftyHA39MWEi3m9aunc5MzRF1JYuBsbn6VPcn33UH</code></td><td><span class="warn">source/target mismatch</span></td><td>source IDL declares vELoC1audYbSYVRXn1vPaV8Axoa9oU6BYmNGZZBDZ1P; requested program is dRiftyHA39MWEi3m9aunc5MzRF1JYuBsbn6VPcn33UH; no on-chain comparison made</td></tr></tbody></table>
 <p><strong>Correction (2026-10-20):</strong> The earlier ledger counted
 <code>dRiftyHA39…</code> as drift by comparing it against a moving SDK IDL
 for the different program <code>vELoC1…</code>. That was not a valid drift
 finding; the row now identifies the source/target mismatch.</p>
-<footer>Last run: 2026-10-20T17:57:52.250Z — 1 in sync, 4 drifting, 1 without on-chain IDL, 1 source/target mismatch, 0 errors.
+<footer>Last run: 2026-10-20T18:11:08.673Z — 1 in sync, 3 drifting, 1 labels only, 1 without on-chain IDL, 1 source/target mismatch, 0 errors.
 <!-- refresh-status:start -->
-<!-- generated from this run: 2026-10-20T17:57:52.250Z -->
+<!-- generated from this run: 2026-10-20T18:11:08.673Z -->
 <!-- refresh-status:end -->
 Source: <a href="https://github.com/auroraxo/idl-drift/blob/master/ledger/programs.json">programs.json</a></footer>
 </body></html>

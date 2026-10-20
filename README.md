@@ -11,8 +11,8 @@ published an on-chain IDL at all.
 The [ledger workflow](.github/workflows/ledger.yml) has a daily GitHub Actions schedule (`17 5 * * *` UTC) plus a [guarded fallback](ledger/ensure-refresh.py) that checks daily whether the schedule actually ran and dispatches the workflow exactly once if it did not. The first scheduled window (2026-10-20 05:17 UTC) was delivered late rather than skipped: [run 39405114846](https://github.com/auroraxo/idl-drift/actions/runs/39405114846) started 10:02 UTC with no manual dispatch, committed the refreshed ledger, and Pages rebuilt the published table. That is one unattended run, not a track record — the daily cadence is what still needs to be established by subsequent windows, and the `_Last run_` timestamp in the [ledger footer](https://auroraxo.github.io/idl-drift/ledger/) is the freshness signal, not this paragraph.
 
 <!-- refresh-status:start -->
-<!-- generated 2026-10-20T17:57:52.250Z by ledger/run.mjs — do not edit by hand; -->
-<!-- 1 in sync, 4 drifting, 1 without on-chain IDL, 1 source/target mismatch, 0 errors -->
+<!-- generated 2026-10-20T18:11:08.673Z by ledger/run.mjs — do not edit by hand; -->
+<!-- 1 in sync, 3 drifting, 1 labels only, 1 without on-chain IDL, 1 source/target mismatch, 0 errors -->
 <!-- 1 of 7 checked programs are in sync -->
 <!-- refresh-status:end -->
 
@@ -29,6 +29,31 @@ Two concrete problems it catches:
    shipped committed IDLs with **null** on-chain IDL accounts on mainnet as
    of October 2026 — neither is a candidate for diff, but both are
    candidates for a "no on-chain IDL" report.
+
+### Labels are not layout
+
+Not every difference breaks a client. Renaming an instruction argument, a
+struct field, an account or an error message changes what a human or codegen
+reads, but Anchor encodes positionally, so the program still decodes the same
+bytes. Reporting that as `drift` claims an incompatibility that is not there.
+
+The report therefore separates the two. A real example from the
+[ledger](https://auroraxo.github.io/idl-drift/ledger/): on 2026-10-20 the klend
+program published IDL version 1.26.0 while `@kamino-finance/klend-sdk` still
+ships 1.25.0, differing only by
+`minAcceptableReceivedLiquidityAmount` → `minReceivedLiquidityAmount` on two
+instructions. The ledger marks that row **labels only**, not drift, because no
+serialized client call breaks.
+
+Every finding carries a `scope` field in `idl-drift-report.json`:
+
+| scope | meaning |
+| --- | --- |
+| `layout` | the program decodes a client's bytes differently — instructions, discriminators, argument/account types or counts |
+| `labels-only` | only names, messages, docs or the `version` string differ; the wire layout is identical |
+
+Both still fail `fail-on-drift`, because a stale IDL is stale either way; the
+scope is there so nobody escalates a rename as a breaking change.
 
 ## Use
 

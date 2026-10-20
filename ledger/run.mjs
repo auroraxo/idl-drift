@@ -95,6 +95,7 @@ async function runOne(t) {
   return {
     ...t,
     status,
+    scope: report.rot?.scope ?? null,
     detail,
     onChain: report.checks.onChainIdlAccount?.address ?? null,
     onChainSource: report.checks.onChainIdlAccount?.source ?? null,
@@ -113,6 +114,11 @@ for (const t of targets) {
 
 const now = new Date();
 const drifted = results.filter((r) => r.status.startsWith("idl_drift") || r.status === "legacy_idl_drift");
+// A rename is a real difference and not a layout break. Counting it as
+// "drifting" would overstate the impact in the same way the retracted Drift
+// row did, so the two are counted and named separately.
+const labelsOnly = drifted.filter((r) => r.scope === "labels-only");
+const layoutDrift = drifted.filter((r) => r.scope !== "labels-only");
 const missing = results.filter((r) => r.status === "on_chain_idl_missing");
 const mismatched = results.filter((r) => r.status === "source_program_mismatch");
 const mismatchLabel = `${mismatched.length} source/target mismatch${mismatched.length === 1 ? "" : "es"}`;
@@ -125,7 +131,8 @@ function row(r) {
     r.status === "on_chain_idl_missing" ? "⚪ no on-chain IDL" :
     r.status.startsWith("legacy") ? "🟡 legacy drift" :
     r.status === "source_program_mismatch" ? "⚠️ source/target mismatch" :
-    errored.includes(r) ? "⚠️ error" : "🔴 drift";
+    errored.includes(r) ? "⚠️ error" :
+    r.scope === "labels-only" ? "🟣 labels only" : "🔴 drift";
   const diff = r.differences?.length
     ? r.differences.map((d) => `\`${d.field}\`${d.entry ? `.${d.entry}` : ""}`).join(", ")
     : r.detail;
@@ -133,7 +140,7 @@ function row(r) {
 }
 
 const stamp = now.toISOString();
-const summaryLine = `${clean.length} in sync, ${drifted.length} drifting, ${missing.length} without on-chain IDL, ${mismatchLabel}, ${errored.length} errors`;
+const summaryLine = `${clean.length} in sync, ${layoutDrift.length} drifting, ${labelsOnly.length} labels only, ${missing.length} without on-chain IDL, ${mismatchLabel}, ${errored.length} errors`;
 // Marker pair shared with ledger/check-freshness.mjs and the root README.
 const MARK_START = "<!-- refresh-status:start -->";
 const MARK_END = "<!-- refresh-status:end -->";
@@ -198,7 +205,7 @@ const rows = results.map((r) => {
     r.status === "on_chain_idl_missing" ? '<span class="miss">no on-chain IDL</span>' :
     r.status.startsWith("legacy") ? '<span class="warn">legacy drift</span>' :
     r.status === "source_program_mismatch" ? '<span class="warn">source/target mismatch</span>' :
-    r.status === "ok" ? "" : '<span class="bad">drift</span>';
+    r.scope === "labels-only" ? '<span class="label">labels only</span>' : '<span class="bad">drift</span>';
   const diff = r.differences?.length
     ? r.differences.map((d) => `<code>${esc(d.field)}${d.entry ? "." + esc(d.entry) : ""}</code>`).join(", ")
     : esc(r.detail);
@@ -213,7 +220,7 @@ const html = `<!doctype html>
 <title>Solana IDL Drift Ledger</title>
 <style>
 body{font:15px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;margin:2rem auto;max-width:70rem;padding:0 1rem;color:#1f2328}
-h1{font-size:1.4rem}a{color:#0969da}.ok{color:#1a7f37}.bad{color:#cf222e}.warn{color:#9a6700}.miss{color:#57606a}
+h1{font-size:1.4rem}a{color:#0969da}.ok{color:#1a7f37}.bad{color:#cf222e}.warn{color:#9a6700}.miss{color:#57606a}.label{color:#6639ba}
 table{border-collapse:collapse;width:100%;font-size:13px}
 th,td{border-bottom:1px solid #d0d7de;padding:.5rem;text-align:left;vertical-align:top}
 th{background:#f6f8fa}code{font-size:12px}footer{color:#57606a;font-size:12px;margin-top:1.5rem}
@@ -236,7 +243,7 @@ finding; the row now identifies the source/target mismatch.</p>
 Source: <a href="https://github.com/auroraxo/idl-drift/blob/master/ledger/programs.json">programs.json</a></footer>
 </body></html>\n`;
 await fs.writeFile(path.join(here, "index.html"), html);
-console.log(`ledger README + index.html written: ${clean.length} ok / ${drifted.length} drift / ${missing.length} missing / ${mismatched.length} source mismatch / ${errored.length} error`);
+console.log(`ledger README + index.html written: ${clean.length} ok / ${layoutDrift.length} drift / ${labelsOnly.length} labels-only / ${missing.length} missing / ${mismatched.length} source mismatch / ${errored.length} error`);
 
 // The repository README describes the same refresh path in prose. That prose
 // went stale three times on 2026-10-20 while the table beside it was accurate,

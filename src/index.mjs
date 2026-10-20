@@ -246,6 +246,68 @@ function diffIdl(a, b) {
   return { ok: differences.length === 0, differences };
 }
 
+/** Project an IDL onto only what determines the bytes a program actually
+ *  decodes: discriminators, argument and account types in order, and type
+ *  structure. Anchor borsh encodes positionally, so an argument name, an
+ *  account label, a struct field name, an error message and the `version`
+ *  string all change what a client *reads* while changing nothing that the
+ *  program decodes. Renaming an instruction does change the layout, because
+ *  the discriminator is derived from the name.
+ *
+ *  Keeping the two apart is the whole point: calling a label change "drift"
+ *  claims an incompatibility that is not there, and that claim is exactly
+ *  what has already been publicly retracted once in this project. */
+function layoutSignature(idl) {
+  const stripLabels = (t) => {
+    if (Array.isArray(t)) return t.map(stripLabels);
+    if (t && typeof t === "object") {
+      const out = {};
+      for (const [k, v] of Object.entries(t)) {
+        if (k === "docs" || k === "name" || k === "msg" || k === "version") continue;
+        out[k] = stripLabels(v);
+      }
+      return out;
+    }
+    return t;
+  };
+  return JSON.stringify({
+    // The instruction name seeds the 8-byte discriminator.
+    instructions: (idl.instructions ?? []).map((i) => ({
+      name: i.name,
+      args: (i.args ?? []).map((a) => a.type),
+      // Instruction account labels are documentation; the position, signer and
+      // writable flags are what the runtime enforces.
+      accounts: (i.accounts ?? []).map((a) => ({
+        isMut: !!a.isMut,
+        isSigner: !!a.isSigner,
+        isOptional: a.isOptional ?? false,
+        isWritable: a.isWritable ?? !!a.isMut,
+        ...(a.pda ? { pda: stripLabels(a.pda) } : {}),
+        ...(a.program ? { program: stripLabels(a.program) } : {}),
+      })),
+      discriminator: i.discriminator ?? i.disc ?? null,
+    })),
+    // Type and account *definitions* keep structure, drop their own and their
+    // field labels.
+    accounts: (idl.accounts ?? []).map((a) => stripLabels(a)),
+    types: (idl.types ?? []).map((t) => stripLabels(t)),
+    // Anchor assigns error codes by position; name and message are for humans.
+    errors: (idl.errors ?? []).map((e) => e.code),
+    constants: (idl.constants ?? []).map((c) => stripLabels(c)),
+  });
+}
+
+/** `"layout"` when the program would decode a client's bytes differently,
+ *  `"labels-only"` when only the words a human or codegen reads changed. */
+function classifyChange(a, b) {
+  try {
+    return layoutSignature(a) === layoutSignature(b) ? "labels-only" : "layout";
+  } catch {
+    // If the projection itself fails, do not soften the claim.
+    return "layout";
+  }
+}
+
 async function main() {
   const program = readInput("program");
   const idlPath = readInput("idl");
@@ -417,6 +479,7 @@ async function main() {
   //    it too, report-only unless fail-on-legacy-drift is set, so schedules
   //    stay green while the stale publication becomes visible.
   let legacyDiff = null;
+  let legacyScope = null;
   if (hasMetadata && hasAnchor) {
     let legacyDecode;
     try {
@@ -443,8 +506,10 @@ async function main() {
               status: "drift",
               address: anchorAddr,
               differences: ld.differences,
+              scope: classifyChange(stripDocs(committedIdl), stripDocs(legacyIdl)),
             };
             legacyDiff = ld.differences;
+            legacyScope = report.checks.legacyAnchorDiff.scope;
           }
         }
       } catch (err) {
@@ -461,9 +526,10 @@ async function main() {
       report.rot = {
         kind: "legacy_idl_drift",
         source: "anchor-legacy",
+        scope: legacyScope,
         differences: legacyDiff,
         field: legacyDiff[0]?.field,
-        detail: legacyDiff.map(formatDifference).join("; "),
+        detail: legacyDiff.map(formatDifference).join("; ") + scopeSuffix(legacyScope),
       };
       await writeSummary(report, failOnLegacyDrift ? 2 : 0);
       return;
@@ -473,14 +539,24 @@ async function main() {
     return;
   }
   report.checks.diff = { status: "drift", differences: diff.differences };
+  const scope = classifyChange(stripDocs(committedIdl), stripDocs(onChainIdl));
+  report.checks.diff.scope = scope;
   report.rot = {
     kind: "idl_drift",
     source: idlSource,
+    scope,
     differences: diff.differences,
     field: diff.differences[0]?.field,
-    detail: diff.differences.map(formatDifference).join("; "),
+    detail: diff.differences.map(formatDifference).join("; ") + scopeSuffix(scope),
   };
   await writeSummary(report, failOnDrift ? 2 : 0);
+}
+
+/** Make the distinction visible in the one line most people read. */
+function scopeSuffix(scope) {
+  return scope === "labels-only"
+    ? " (labels only: the program decodes the same bytes; names changed, layout did not)"
+    : "";
 }
 
 function formatDifference(d) {

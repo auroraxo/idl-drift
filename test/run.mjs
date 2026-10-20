@@ -246,6 +246,61 @@ await check(
 );
 
 await check(
+  "labels-only change reported as labels-only, not layout drift",
+  2,
+  async () => {
+    const onChain = structuredClone(committedIdl);
+    onChain.version = "9.9.9";
+    onChain.instructions[0].args[0].name = "renamedOnly";
+    onChain.types[0].type.fields[0].name = "renamedField";
+    onChain.errors[0].name = "RenamedError";
+    onChain.errors[0].msg = "rewritten for humans";
+    return withCase(
+      { metadata: encodeMetadataAccount(programKey, onChain), anchor: null },
+      async ({ url, ws }) => {
+        const res = await runEntry({ ...baseInputs, INPUT_RPC_URL: url, GITHUB_WORKSPACE: ws });
+        if (res.code !== 2) return res;
+        const report = JSON.parse(await fs.readFile(path.join(ws, "idl-drift-report.json"), "utf8"));
+        if (report.rot?.kind !== "idl_drift") throw new Error(`kind=${report.rot?.kind}`);
+        if (report.rot?.scope !== "labels-only") {
+          throw new Error(`expected scope labels-only, got ${JSON.stringify(report.rot)}`);
+        }
+        if (!report.rot.detail.includes("labels only")) {
+          throw new Error(`detail does not carry the distinction: ${report.rot.detail}`);
+        }
+        if (report.checks.diff?.scope !== "labels-only") throw new Error("checks.diff.scope missing");
+        return res;
+      }
+    );
+  }
+);
+
+await check(
+  "layout change reported as layout (instruction renamed = new discriminator)",
+  2,
+  async () => {
+    const onChain = structuredClone(committedIdl);
+    onChain.instructions[0].name = `${onChain.instructions[0].name}_renamed`;
+    onChain.instructions[0].args[0].type = "u64"; // type change, not just a label
+    return withCase(
+      { metadata: encodeMetadataAccount(programKey, onChain), anchor: null },
+      async ({ url, ws }) => {
+        const res = await runEntry({ ...baseInputs, INPUT_RPC_URL: url, GITHUB_WORKSPACE: ws });
+        if (res.code !== 2) return res;
+        const report = JSON.parse(await fs.readFile(path.join(ws, "idl-drift-report.json"), "utf8"));
+        if (report.rot?.scope !== "layout") {
+          throw new Error(`expected scope layout, got ${JSON.stringify(report.rot?.scope)}`);
+        }
+        if (report.rot.detail.includes("labels only")) {
+          throw new Error("layout change must not be softened to labels-only");
+        }
+        return res;
+      }
+    );
+  }
+);
+
+await check(
   "missing, fail-on-missing=false -> 0",
   0,
   () => withCase({ metadata: null, anchor: null }, ({ url, ws }) => runEntry({ ...baseInputs, INPUT_RPC_URL: url, GITHUB_WORKSPACE: ws }))
