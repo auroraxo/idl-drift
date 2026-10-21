@@ -221,5 +221,24 @@ await expect(
   }
 }
 
+// 11. The generator writes three files; the workflow that commits them must
+// stage all three. It once staged only the table and the page, so the root
+// README's block lagged a run behind and the scheduled freshness check went
+// red — this pins the wiring between ledger/run.mjs and ledger.yml.
+{
+  const wf = await fs.readFile(path.join(here, "..", ".github", "workflows", "ledger.yml"), "utf8");
+  const addLines = wf.split("\n").filter((l) => l.includes("git add"));
+  const staged = new Set(addLines.flatMap((l) => l.slice(l.indexOf("git add") + "git add".length).trim().split(/\s+/)));
+  const required = ["ledger/README.md", "ledger/index.html", "README.md"];
+  const missing = required.filter((f) => !staged.has(f));
+  if (addLines.length && !missing.length) {
+    pass++;
+    console.log("ok   ledger workflow stages every file run.mjs writes");
+  } else {
+    failCount++;
+    console.log(`FAIL ledger workflow stages every file run.mjs writes: missing ${missing.join(", ") || "git add line"}`);
+  }
+}
+
 console.log(`\n${pass} passed, ${failCount} failed`);
 process.exit(failCount ? 1 : 0);

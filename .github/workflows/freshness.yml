@@ -22,6 +22,7 @@ on:
       - "ledger/run.mjs"
       - "README.md"
       - ".github/workflows/freshness.yml"
+      - ".github/workflows/ledger.yml"
   schedule:
     - cron: "41 6 * * *" # daily 06:41 UTC, after the ledger refresh slot
 

@@ -31,7 +31,12 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add ledger/README.md ledger/index.html
+          # run.mjs writes three files: the ledger table, the published page and
+          # the root README's refresh-status block. Staging only the first two
+          # left the root block a run behind, which is exactly what
+          # ledger/check-freshness.mjs reported as "the status sentence outran
+          # its data". Stage all three or the guard fails the next schedule.
+          git add ledger/README.md ledger/index.html README.md
           if ! git diff --cached --quiet; then
             git commit -m "ledger: refresh $(date -u +%F) [skip ci]"
             git push
