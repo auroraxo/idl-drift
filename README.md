@@ -11,7 +11,7 @@ published an on-chain IDL at all.
 The [ledger workflow](.github/workflows/ledger.yml) has a daily GitHub Actions schedule (`17 5 * * *` UTC) plus a [guarded fallback](ledger/ensure-refresh.py) that checks daily whether the schedule actually ran and dispatches the workflow exactly once if it did not. The first scheduled window (2026-10-20 05:17 UTC) was delivered late rather than skipped: [run 39405114846](https://github.com/auroraxo/idl-drift/actions/runs/39405114846) started 10:02 UTC with no manual dispatch, committed the refreshed ledger, and Pages rebuilt the published table. That is one unattended run, not a track record — the daily cadence is what still needs to be established by subsequent windows, and the `_Last run_` timestamp in the [ledger footer](https://auroraxo.github.io/idl-drift/ledger/) is the freshness signal, not this paragraph.
 
 <!-- refresh-status:start -->
-<!-- generated 2026-10-24T09:31:35.807Z by ledger/run.mjs — do not edit by hand; -->
+<!-- generated 2026-10-25T09:48:00.781Z by ledger/run.mjs — do not edit by hand; -->
 <!-- 1 in sync, 3 drifting, 1 labels only, 1 without on-chain IDL, 1 source/target mismatch, 0 errors -->
 <!-- 1 of 7 checked programs are in sync -->
 <!-- refresh-status:end -->
